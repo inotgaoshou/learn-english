@@ -127,6 +127,10 @@ struct ArticleTranslatorView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(cleanSelectedSourceText.isEmpty || isTranslating)
                     }
+
+                    if !cleanSelectedSourceText.isEmpty {
+                        articlePlaybackControls
+                    }
                 }
 
                 Section("中文翻译") {
@@ -350,6 +354,7 @@ struct ArticleTranslatorView: View {
 
             HStack(spacing: 10) {
                 Button {
+                    speechService.stop()
                     selectedSegmentIndices = []
                     clearTranslationResult()
                 } label: {
@@ -359,6 +364,7 @@ struct ArticleTranslatorView: View {
                 .buttonStyle(.bordered)
 
                 Button {
+                    speechService.stop()
                     selectedSegmentIndices = Set(articleSegments.indices)
                     clearTranslationResult()
                 } label: {
@@ -372,6 +378,51 @@ struct ArticleTranslatorView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var articlePlaybackControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("朗读控制", systemImage: "waveform")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(selectionSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    speechService.pauseOrContinue()
+                } label: {
+                    Label(speechService.isPaused ? "继续" : "暂停", systemImage: speechService.isPaused ? "play.fill" : "pause.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!speechService.isSpeaking && !speechService.isPaused)
+
+                Button {
+                    speechService.stop()
+                } label: {
+                    Label("停止", systemImage: "stop.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!speechService.isSpeaking && !speechService.isPaused)
+            }
+
+            if speechService.isSpeaking || speechService.isPaused {
+                Text(speechService.isPaused ? "已暂停当前朗读范围" : "正在朗读当前选择范围")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("点击“\(sourceAccent.title)朗读”后，可暂停、继续或停止。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func startScan() {
@@ -461,6 +512,7 @@ struct ArticleTranslatorView: View {
     }
 
     private func updateSourceText(_ text: String, captureMode: ArticleCaptureMode) {
+        speechService.stop()
         sourceText = text
         articleSegments = ArticleTextSegment.segments(from: text)
         if captureMode == .contentBlock, !articleSegments.isEmpty {
@@ -471,6 +523,7 @@ struct ArticleTranslatorView: View {
     }
 
     private func refreshSegments(for text: String) {
+        speechService.stop()
         articleSegments = ArticleTextSegment.segments(from: text)
         selectedSegmentIndices = selectedSegmentIndices.filter { articleSegments.indices.contains($0) }
     }
@@ -486,6 +539,7 @@ struct ArticleTranslatorView: View {
     }
 
     private func toggleSegmentSelection(_ index: Int) {
+        speechService.stop()
         if selectedSegmentIndices.contains(index) {
             selectedSegmentIndices.remove(index)
         } else {
