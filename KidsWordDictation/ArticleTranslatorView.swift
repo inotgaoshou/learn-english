@@ -73,6 +73,10 @@ struct ArticleTranslatorView: View {
                 }
 
                 Section("英文原文") {
+                    if !cleanSourceText.isEmpty {
+                        sourceTextToolbar
+                    }
+
                     if isEditingSourceText {
                         TextEditor(text: $sourceText)
                             .frame(minHeight: 180)
@@ -80,17 +84,21 @@ struct ArticleTranslatorView: View {
                             .autocorrectionDisabled()
                             .onChange(of: sourceText) { _, newValue in
                                 refreshSegments(for: newValue)
+                                clearTranslationResult()
                             }
-                    } else {
-                        articleReadingView
-                    }
-
-                    if !articleSegments.isEmpty {
-                        contentBlockSelectionView
-                    } else if !cleanSourceText.isEmpty {
-                        Text("当前为整页内容。拍指定内容块时，请在扫描编辑页用 Adjust 框住目标区域。")
+                        Text("修改识别文字后，内容块和朗读范围会自动更新。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    } else {
+                        if !articleSegments.isEmpty {
+                            contentBlockSelectionView
+                        }
+                        articleReadingView
+                        if articleSegments.isEmpty, !cleanSourceText.isEmpty {
+                            Text("当前为整页内容。拍指定内容块时，请在扫描编辑页用 Adjust 框住目标区域。")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     Picker("发音", selection: $sourceAccent) {
@@ -119,15 +127,6 @@ struct ArticleTranslatorView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(cleanSelectedSourceText.isEmpty || isTranslating)
                     }
-
-                    Button {
-                        isEditingSourceText.toggle()
-                    } label: {
-                        Label(isEditingSourceText ? "阅读样式" : "编辑原文", systemImage: isEditingSourceText ? "text.book.closed" : "square.and.pencil")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(cleanSourceText.isEmpty)
                 }
 
                 Section("中文翻译") {
@@ -222,10 +221,6 @@ struct ArticleTranslatorView: View {
         WordTextNormalizer.displayText(for: selectedSourceText)
     }
 
-    private var selectedSourcePreview: String {
-        selectedSegmentIndices.isEmpty ? cleanSourceText : cleanSelectedSourceText
-    }
-
     private var selectedSourceText: String {
         guard !selectedSegmentIndices.isEmpty else {
             return sourceText
@@ -241,6 +236,31 @@ struct ArticleTranslatorView: View {
         selectedSegmentIndices.isEmpty ? "当前使用整页内容" : "已选择 \(selectedSegmentIndices.count) 个内容块"
     }
 
+    private var isAllSegmentsSelected: Bool {
+        !articleSegments.isEmpty && selectedSegmentIndices == Set(articleSegments.indices)
+    }
+
+    private var sourceTextToolbar: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(isEditingSourceText ? "正在编辑识别文字" : "识别结果")
+                    .font(.headline)
+                Text(isEditingSourceText ? "完成后回到阅读样式继续朗读或翻译" : selectionSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                isEditingSourceText.toggle()
+            } label: {
+                Label(isEditingSourceText ? "完成" : "编辑", systemImage: isEditingSourceText ? "checkmark.circle" : "square.and.pencil")
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
     private var articleReadingView: some View {
         VStack(alignment: .leading, spacing: 12) {
             if articleSegments.isEmpty {
@@ -249,31 +269,48 @@ struct ArticleTranslatorView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
                 } else {
-                    readableTextCard(title: "整页内容", text: cleanSourceText, isSelected: true)
+                    readableTextCard(
+                        title: "整页内容",
+                        text: cleanSourceText,
+                        isSelected: true,
+                        badgeTitle: "整页朗读",
+                        action: nil
+                    )
                 }
             } else {
                 ForEach(articleSegments.indices, id: \.self) { index in
                     readableTextCard(
                         title: "内容块 \(index + 1)：\(articleSegments[index].title)",
                         text: articleSegments[index].text,
-                        isSelected: selectedSegmentIndices.isEmpty || selectedSegmentIndices.contains(index)
+                        isSelected: selectedSegmentIndices.contains(index),
+                        badgeTitle: selectedSegmentIndices.contains(index) ? "已选朗读" : "点选朗读",
+                        action: {
+                            toggleSegmentSelection(index)
+                        }
                     )
                 }
             }
         }
     }
 
-    private func readableTextCard(title: String, text: String, isSelected: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
+    @ViewBuilder
+    private func readableTextCard(title: String, text: String, isSelected: Bool, badgeTitle: String, action: (() -> Void)?) -> some View {
+        let card = VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                Spacer()
-                if isSelected {
-                    Text("朗读范围")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.blue)
-                }
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+
+                Spacer(minLength: 8)
+
+                Label(badgeTitle, systemImage: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(isSelected ? Color.blue.opacity(0.12) : Color.secondary.opacity(0.12), in: Capsule())
+                    .fixedSize()
             }
 
             Text(text)
@@ -287,8 +324,17 @@ struct ArticleTranslatorView: View {
         .background(isSelected ? Color.blue.opacity(0.08) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.blue.opacity(0.28) : Color.clear, lineWidth: 1)
+                .stroke(isSelected ? Color.blue.opacity(0.32) : Color.secondary.opacity(0.12), lineWidth: 1)
         )
+
+        if let action {
+            Button(action: action) {
+                card
+            }
+            .buttonStyle(.plain)
+        } else {
+            card
+        }
     }
 
     private var contentBlockSelectionView: some View {
@@ -307,7 +353,7 @@ struct ArticleTranslatorView: View {
                     selectedSegmentIndices = []
                     clearTranslationResult()
                 } label: {
-                    Label("整页", systemImage: selectedSegmentIndices.isEmpty ? "checkmark.circle.fill" : "doc.text")
+                    Label("整页朗读", systemImage: selectedSegmentIndices.isEmpty ? "checkmark.circle.fill" : "doc.text")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -316,47 +362,16 @@ struct ArticleTranslatorView: View {
                     selectedSegmentIndices = Set(articleSegments.indices)
                     clearTranslationResult()
                 } label: {
-                    Label("全选", systemImage: "checklist")
+                    Label("全选段落", systemImage: isAllSegmentsSelected ? "checkmark.circle.fill" : "checklist")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
             }
+            .buttonStyle(.bordered)
 
-            ForEach(articleSegments.indices, id: \.self) { index in
-                contentBlockRow(index)
-            }
-
-            Text(selectedSourcePreview)
+            Text("也可以直接点击下方内容块，选择一段或多段来朗读和翻译。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(4)
-                .textSelection(.enabled)
         }
-    }
-
-    private func contentBlockRow(_ index: Int) -> some View {
-        let isSelected = selectedSegmentIndices.contains(index)
-        return Button {
-            toggleSegmentSelection(index)
-        } label: {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(isSelected ? .blue : .secondary)
-                    .font(.title3)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("内容块 \(index + 1)：\(articleSegments[index].title)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text(articleSegments[index].text)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-        .buttonStyle(.plain)
     }
 
     private func startScan() {
