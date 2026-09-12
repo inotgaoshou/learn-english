@@ -136,27 +136,17 @@ struct WordListDetailView: View {
                                 .autocorrectionDisabled()
                         }
 
-                        Menu {
-                            Button {
-                                speechService.speak(word.text, rate: 0.45, repetitions: 1, accent: .american)
-                            } label: {
-                                Label("美式发音", systemImage: "speaker.wave.2")
-                            }
-
-                            Button {
-                                speechService.speak(word.text, rate: 0.45, repetitions: 1, accent: .british)
-                            } label: {
-                                Label("英式发音", systemImage: "speaker.wave.2")
-                            }
+                        Button {
+                            speechService.speak(word.text, rate: 0.45, repetitions: 1, accent: newWordAccent)
                         } label: {
                             Image(systemName: "speaker.wave.2.circle")
                         }
                         .buttonStyle(.borderless)
                         .disabled(word.normalizedText.isEmpty)
-                        .accessibilityLabel("选择 \(word.text) 的发音")
+                        .accessibilityLabel("播放 \(word.text) 的\(newWordAccent.title)发音")
 
                         Button {
-                            speechService.speak(word.sentence, rate: 0.45, repetitions: 1)
+                            speechService.speak(word.sentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
                         } label: {
                             Image(systemName: "quote.bubble")
                         }

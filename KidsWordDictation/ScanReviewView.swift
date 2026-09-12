@@ -11,6 +11,7 @@ struct ScanReviewView: View {
     @State private var title: String
     @State private var selectedCategory: String
     @State private var customCategory: String
+    @State private var speechAccent: SpeechAccent = .american
     @State private var drafts: [WordDraft]
     @State private var pendingDeleteIDs: [WordDraft.ID] = []
     @StateObject private var speechService = SpeechService()
@@ -41,6 +42,12 @@ struct ScanReviewView: View {
                         }
                     }
                     TextField("新分类（可选）", text: $customCategory)
+                    Picker("发音", selection: $speechAccent) {
+                        ForEach(SpeechAccent.allCases) { accent in
+                            Text(accent.title).tag(accent)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 Section("识别结果") {
@@ -76,27 +83,17 @@ struct ScanReviewView: View {
                                     .autocorrectionDisabled()
                             }
 
-                            Menu {
-                                Button {
-                                    speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: .american)
-                                } label: {
-                                    Label("美式发音", systemImage: "speaker.wave.2")
-                                }
-
-                                Button {
-                                    speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: .british)
-                                } label: {
-                                    Label("英式发音", systemImage: "speaker.wave.2")
-                                }
+                            Button {
+                                speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: speechAccent)
                             } label: {
                                 Image(systemName: "speaker.wave.2.circle")
                             }
                             .buttonStyle(.borderless)
                             .disabled(WordTextNormalizer.normalize(draft.text).isEmpty)
-                            .accessibilityLabel("选择 \(draft.text) 的发音")
+                            .accessibilityLabel("播放 \(draft.text) 的\(speechAccent.title)发音")
 
                             Button {
-                                speechService.speak(draft.sentence, rate: 0.45, repetitions: 1)
+                                speechService.speak(draft.sentence, rate: 0.45, repetitions: 1, accent: speechAccent)
                             } label: {
                                 Image(systemName: "quote.bubble")
                             }

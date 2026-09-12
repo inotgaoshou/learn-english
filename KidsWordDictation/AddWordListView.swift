@@ -156,27 +156,17 @@ struct AddWordListView: View {
 
                                 Spacer()
 
-                                Menu {
-                                    Button {
-                                        speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: .american)
-                                    } label: {
-                                        Label("美式发音", systemImage: "speaker.wave.2")
-                                    }
-
-                                    Button {
-                                        speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: .british)
-                                    } label: {
-                                        Label("英式发音", systemImage: "speaker.wave.2")
-                                    }
+                                Button {
+                                    speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: newWordAccent)
                                 } label: {
                                     Image(systemName: "speaker.wave.2.circle")
                                 }
                                 .buttonStyle(.borderless)
                                 .disabled(WordTextNormalizer.normalize(draft.text).isEmpty)
-                                .accessibilityLabel("选择 \(draft.text) 的发音")
+                                .accessibilityLabel("播放 \(draft.text) 的\(newWordAccent.title)发音")
 
                                 Button {
-                                    speechService.speak(draft.sentence, rate: 0.45, repetitions: 1)
+                                    speechService.speak(draft.sentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
                                 } label: {
                                     Image(systemName: "quote.bubble")
                                 }
