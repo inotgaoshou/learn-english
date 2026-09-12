@@ -21,6 +21,7 @@ struct ArticleTranslatorView: View {
     @State private var translationConfiguration: TranslationSession.Configuration?
     @State private var sourceAccent: SpeechAccent = .american
     @State private var captureMode: ArticleCaptureMode = .fullPage
+    @State private var isEditingSourceText = false
     @StateObject private var speechService = SpeechService()
 
     private let ocrService = OCRService()
@@ -72,13 +73,17 @@ struct ArticleTranslatorView: View {
                 }
 
                 Section("英文原文") {
-                    TextEditor(text: $sourceText)
-                        .frame(minHeight: 180)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .onChange(of: sourceText) { _, newValue in
-                            refreshSegments(for: newValue)
-                        }
+                    if isEditingSourceText {
+                        TextEditor(text: $sourceText)
+                            .frame(minHeight: 180)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .onChange(of: sourceText) { _, newValue in
+                                refreshSegments(for: newValue)
+                            }
+                    } else {
+                        articleReadingView
+                    }
 
                     if !articleSegments.isEmpty {
                         contentBlockSelectionView
@@ -114,6 +119,15 @@ struct ArticleTranslatorView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(cleanSelectedSourceText.isEmpty || isTranslating)
                     }
+
+                    Button {
+                        isEditingSourceText.toggle()
+                    } label: {
+                        Label(isEditingSourceText ? "阅读样式" : "编辑原文", systemImage: isEditingSourceText ? "text.book.closed" : "square.and.pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(cleanSourceText.isEmpty)
                 }
 
                 Section("中文翻译") {
@@ -225,6 +239,56 @@ struct ArticleTranslatorView: View {
 
     private var selectionSummary: String {
         selectedSegmentIndices.isEmpty ? "当前使用整页内容" : "已选择 \(selectedSegmentIndices.count) 个内容块"
+    }
+
+    private var articleReadingView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if articleSegments.isEmpty {
+                if cleanSourceText.isEmpty {
+                    Text("导入或扫描后在这里显示英文内容")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
+                } else {
+                    readableTextCard(title: "整页内容", text: cleanSourceText, isSelected: true)
+                }
+            } else {
+                ForEach(articleSegments.indices, id: \.self) { index in
+                    readableTextCard(
+                        title: "内容块 \(index + 1)：\(articleSegments[index].title)",
+                        text: articleSegments[index].text,
+                        isSelected: selectedSegmentIndices.isEmpty || selectedSegmentIndices.contains(index)
+                    )
+                }
+            }
+        }
+    }
+
+    private func readableTextCard(title: String, text: String, isSelected: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if isSelected {
+                    Text("朗读范围")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.blue)
+                }
+            }
+
+            Text(text)
+                .font(.title3)
+                .lineSpacing(6)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isSelected ? Color.blue.opacity(0.08) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Color.blue.opacity(0.28) : Color.clear, lineWidth: 1)
+        )
     }
 
     private var contentBlockSelectionView: some View {

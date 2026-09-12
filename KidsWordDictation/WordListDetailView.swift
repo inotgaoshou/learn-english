@@ -9,6 +9,7 @@ struct WordListDetailView: View {
     @State private var newTranslation = ""
     @State private var newSentence = ""
     @State private var newWordAccent: SpeechAccent = .american
+    @State private var isAddWordExpanded = false
     @State private var pendingDeleteIDs: [WordItem.ID] = []
     @StateObject private var speechService = SpeechService()
 
@@ -35,68 +36,13 @@ struct WordListDetailView: View {
                 .disabled(wordList.words.isEmpty)
             }
 
-            Section("追加单词") {
-                TextField("添加单词", text: $newWord)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onChange(of: newWord) { _, newValue in
-                        if newPhonetic.isEmpty {
-                            newPhonetic = WordPhoneticLookup.phonetic(for: newValue)
-                        }
-                        if newBritishPhonetic.isEmpty {
-                            newBritishPhonetic = WordPhoneticLookup.britishPhonetic(for: newValue)
-                        }
-                        if newTranslation.isEmpty {
-                            newTranslation = WordTranslationLookup.translation(for: newValue)
-                        }
-                    }
-
-                PhoneticEditorFields(
-                    americanPhonetic: $newPhonetic,
-                    britishPhonetic: $newBritishPhonetic
-                )
-
-                TextField("中文释义", text: $newTranslation)
-
-                TextField("英文例句", text: $newSentence)
-                    .textInputAutocapitalization(.sentences)
-                    .autocorrectionDisabled()
-
-                Picker("发音", selection: $newWordAccent) {
-                    ForEach(SpeechAccent.allCases) { accent in
-                        Text(accent.title).tag(accent)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                HStack(spacing: 12) {
-                    Button {
-                        speechService.speak(newWord, rate: 0.45, repetitions: 1, accent: newWordAccent)
-                    } label: {
-                        Label("\(newWordAccent.title)发音", systemImage: "speaker.wave.2")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(WordTextNormalizer.normalize(newWord).isEmpty)
-
-                    Button {
-                        speechService.speak(newSentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
-                    } label: {
-                        Label("播放例句", systemImage: "quote.bubble")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(WordTextNormalizer.normalize(newSentence).isEmpty)
-                }
-
-                Button {
-                    addNewWord()
+            Section {
+                DisclosureGroup(isExpanded: $isAddWordExpanded) {
+                    addWordFields
                 } label: {
-                    Label("添加到列表", systemImage: "plus.circle.fill")
-                        .frame(maxWidth: .infinity)
+                    Label("追加单词", systemImage: "plus.circle")
+                        .font(.headline)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(WordTextNormalizer.normalize(newWord).isEmpty)
             }
 
             Section("单词列表") {
@@ -191,6 +137,73 @@ struct WordListDetailView: View {
         }
     }
 
+    private var addWordFields: some View {
+        VStack(spacing: 12) {
+            TextField("添加单词", text: $newWord)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .onChange(of: newWord) { _, newValue in
+                    if newPhonetic.isEmpty {
+                        newPhonetic = WordPhoneticLookup.phonetic(for: newValue)
+                    }
+                    if newBritishPhonetic.isEmpty {
+                        newBritishPhonetic = WordPhoneticLookup.britishPhonetic(for: newValue)
+                    }
+                    if newTranslation.isEmpty {
+                        newTranslation = WordTranslationLookup.translation(for: newValue)
+                    }
+                }
+
+            PhoneticEditorFields(
+                americanPhonetic: $newPhonetic,
+                britishPhonetic: $newBritishPhonetic
+            )
+
+            TextField("中文释义", text: $newTranslation)
+
+            TextField("英文例句", text: $newSentence)
+                .textInputAutocapitalization(.sentences)
+                .autocorrectionDisabled()
+
+            Picker("发音", selection: $newWordAccent) {
+                ForEach(SpeechAccent.allCases) { accent in
+                    Text(accent.title).tag(accent)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            HStack(spacing: 12) {
+                Button {
+                    speechService.speak(newWord, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                } label: {
+                    Label("\(newWordAccent.title)发音", systemImage: "speaker.wave.2")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(WordTextNormalizer.normalize(newWord).isEmpty)
+
+                Button {
+                    speechService.speak(newSentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                } label: {
+                    Label("播放例句", systemImage: "quote.bubble")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(WordTextNormalizer.normalize(newSentence).isEmpty)
+            }
+
+            Button {
+                addNewWord()
+            } label: {
+                Label("添加到列表", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(WordTextNormalizer.normalize(newWord).isEmpty)
+        }
+        .padding(.top, 10)
+    }
+
     private func addNewWord() {
         let item = WordItem(text: newWord, phonetic: newPhonetic, britishPhonetic: newBritishPhonetic, translation: newTranslation, sentence: newSentence)
         guard !item.normalizedText.isEmpty else {
@@ -206,6 +219,7 @@ struct WordListDetailView: View {
         newBritishPhonetic = ""
         newTranslation = ""
         newSentence = ""
+        isAddWordExpanded = false
     }
 
     private func requestDeleteWord(id: WordItem.ID) {
