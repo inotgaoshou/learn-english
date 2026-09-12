@@ -19,6 +19,7 @@ struct ArticleTranslatorView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var translationConfiguration: TranslationSession.Configuration?
     @State private var sourceAccent: SpeechAccent = .american
+    @State private var captureMode: ArticleCaptureMode = .fullPage
     @StateObject private var speechService = SpeechService()
 
     private let ocrService = OCRService()
@@ -26,6 +27,35 @@ struct ArticleTranslatorView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("开始") {
+                    PrimaryActionRow(
+                        title: "拍整页文章",
+                        subtitle: "适合整页课文，识别后可选择整页或自动分出的段落",
+                        systemImage: "doc.viewfinder"
+                    ) {
+                        captureMode = .fullPage
+                        startScan()
+                    }
+
+                    PrimaryActionRow(
+                        title: "拍一个段落",
+                        subtitle: "像拍题一样只框选 Ellie、Laura 这种单独一块",
+                        systemImage: "viewfinder.rectangular"
+                    ) {
+                        captureMode = .paragraph
+                        startScan()
+                    }
+
+                    PrimaryActionRow(
+                        title: "导入文章图片",
+                        subtitle: "从相册导入教材照片或截图，再选择范围朗读翻译",
+                        systemImage: "photo.on.rectangle"
+                    ) {
+                        captureMode = .fullPage
+                        isShowingPhotoPicker = true
+                    }
+                }
+
                 Section("英文原文") {
                     TextEditor(text: $sourceText)
                         .frame(minHeight: 180)
@@ -49,6 +79,10 @@ struct ArticleTranslatorView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(4)
                             .textSelection(.enabled)
+                    } else if !cleanSourceText.isEmpty {
+                        Text("当前为整页内容。拍单独段落时，请在扫描编辑页用 Adjust 框住目标段落。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     Picker("发音", selection: $sourceAccent) {
@@ -105,12 +139,14 @@ struct ArticleTranslatorView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
+                            captureMode = .fullPage
                             startScan()
                         } label: {
                             Label("扫描文章", systemImage: "doc.viewfinder")
                         }
 
                         Button {
+                            captureMode = .fullPage
                             isShowingPhotoPicker = true
                         } label: {
                             Label("导入文章图片", systemImage: "photo")
@@ -230,7 +266,7 @@ struct ArticleTranslatorView: View {
                 let text = try await ocrService.recognizeText(from: images)
                 await MainActor.run {
                     isRecognizing = false
-                    updateSourceText(text)
+                    updateSourceText(text, captureMode: captureMode)
                     translatedText = ""
                     translationError = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "没有识别到英文内容。" : nil
                 }
@@ -272,10 +308,14 @@ struct ArticleTranslatorView: View {
         isTranslating = false
     }
 
-    private func updateSourceText(_ text: String) {
+    private func updateSourceText(_ text: String, captureMode: ArticleCaptureMode) {
         sourceText = text
         articleSegments = ArticleTextSegment.segments(from: text)
-        selectedSegmentIndex = nil
+        if captureMode == .paragraph, !articleSegments.isEmpty {
+            selectedSegmentIndex = 0
+        } else {
+            selectedSegmentIndex = nil
+        }
     }
 
     private func refreshSegments(for text: String) {
@@ -384,4 +424,9 @@ private struct ArticleTextSegment: Identifiable, Hashable {
         }
         return String(letters).uppercased() == String(letters)
     }
+}
+
+private enum ArticleCaptureMode {
+    case fullPage
+    case paragraph
 }

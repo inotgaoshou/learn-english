@@ -19,11 +19,46 @@ struct UnitWordsView: View {
     private let ocrService = OCRService()
 
     var body: some View {
-        Group {
+        List {
+            Section("开始") {
+                PrimaryActionRow(
+                    title: "拍照扫描单词表",
+                    subtitle: "对准整页或框选一块单词区域，识别后保存到单元",
+                    systemImage: "camera.viewfinder"
+                ) {
+                    startScan()
+                }
+
+                PrimaryActionRow(
+                    title: "导入图片识别",
+                    subtitle: "从相册选择已经拍好的单词表或教材截图",
+                    systemImage: "photo.on.rectangle"
+                ) {
+                    isShowingPhotoPicker = true
+                }
+
+                PrimaryActionRow(
+                    title: "手动录入单元",
+                    subtitle: "手动输入单词、音标、释义和例句",
+                    systemImage: "square.and.pencil"
+                ) {
+                    isShowingManualAdd = true
+                }
+
+                PrimaryActionRow(
+                    title: "创建分类",
+                    subtitle: "例如 KET、Unit 1、家庭、学校",
+                    systemImage: "folder.badge.plus"
+                ) {
+                    isShowingCategoryAdd = true
+                }
+            }
+
             if appState.wordLists.isEmpty && appState.categoryNames.isEmpty {
-                ContentUnavailableView("暂无分类和单元", systemImage: "text.book.closed", description: Text("点击右上角先创建分类，或直接添加单元词语"))
+                Section {
+                    ContentUnavailableView("暂无分类和单元", systemImage: "text.book.closed", description: Text("先从上方选择一种方式开始"))
+                }
             } else {
-                List {
                     ForEach(categoryGroups, id: \.category) { group in
                         Section {
                             if group.items.isEmpty {
@@ -57,7 +92,6 @@ struct UnitWordsView: View {
                             )
                         }
                     }
-                }
             }
         }
         .navigationTitle("单元词语")
@@ -278,6 +312,43 @@ struct UnitWordsView: View {
         } else {
             scanReview = ScanReviewData(words: words)
         }
+    }
+}
+
+struct PrimaryActionRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(.white)
+                    .frame(width: 42, height: 42)
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
     }
 }
 
