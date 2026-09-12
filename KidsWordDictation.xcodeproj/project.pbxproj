@@ -20,6 +20,7 @@
 		100000000000000000000009 /* WordListDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000109 /* WordListDetailView.swift */; };
 		10000000000000000000000A /* DictationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010A /* DictationView.swift */; };
 		100000000000000000000010 /* ArticleTranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000110 /* ArticleTranslatorView.swift */; };
+		100000000000000000000013 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000113 /* InfoPlist.strings */; };
 		10000000000000000000000B /* WordModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010B /* WordModels.swift */; };
 		10000000000000000000000C /* WordTextExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010C /* WordTextExtractor.swift */; };
 		10000000000000000000000D /* DictationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010D /* DictationSession.swift */; };
@@ -42,6 +43,7 @@
 		10000000000000000000010A /* DictationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationView.swift; sourceTree = "<group>"; };
 		100000000000000000000110 /* ArticleTranslatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleTranslatorView.swift; sourceTree = "<group>"; };
 		100000000000000000000112 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		100000000000000000000113 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hans.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		10000000000000000000010B /* WordModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordModels.swift; sourceTree = "<group>"; };
 		10000000000000000000010C /* WordTextExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTextExtractor.swift; sourceTree = "<group>"; };
 		10000000000000000000010D /* DictationSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationSession.swift; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 				10000000000000000000010A /* DictationView.swift */,
 				100000000000000000000110 /* ArticleTranslatorView.swift */,
 				100000000000000000000112 /* Assets.xcassets */,
+				100000000000000000000113 /* InfoPlist.strings */,
 			);
 			path = KidsWordDictation;
 			sourceTree = "<group>";
@@ -146,9 +149,10 @@
 			};
 			buildConfigurationList = 100000000000000000000071 /* Build configuration list for PBXProject "KidsWordDictation" */;
 			compatibilityVersion = "Xcode 15.0";
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				"zh-Hans",
 				en,
 				Base,
 			);
@@ -168,6 +172,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				100000000000000000000012 /* Assets.xcassets in Resources */,
+				100000000000000000000013 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -325,6 +330,10 @@
 				DEVELOPMENT_TEAM = US68YTUSG4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDevelopmentRegion = "zh-Hans";
+				INFOPLIST_KEY_CFBundleLocalizations = (
+					"zh-Hans",
+				);
 				INFOPLIST_KEY_CFBundleDisplayName = "单词听写";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表图片进行识别。";
@@ -355,6 +364,10 @@
 				DEVELOPMENT_TEAM = US68YTUSG4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDevelopmentRegion = "zh-Hans";
+				INFOPLIST_KEY_CFBundleLocalizations = (
+					"zh-Hans",
+				);
 				INFOPLIST_KEY_CFBundleDisplayName = "单词听写";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表图片进行识别。";
