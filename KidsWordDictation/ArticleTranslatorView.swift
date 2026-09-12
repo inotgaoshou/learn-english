@@ -10,7 +10,7 @@ struct ArticleTranslatorView: View {
     @State private var translatedText = ""
     @State private var translationError: String?
     @State private var articleSegments: [ArticleTextSegment] = []
-    @State private var selectedSegmentIndex: Int?
+    @State private var selectedSegmentIndices: Set<Int> = []
     @State private var pendingTranslationText = ""
     @State private var isShowingScanner = false
     @State private var isShowingPhotoPicker = false
@@ -80,21 +80,9 @@ struct ArticleTranslatorView: View {
                         }
 
                     if !articleSegments.isEmpty {
-                        Picker("范围", selection: segmentSelection) {
-                            Text("整页").tag(-1)
-                            ForEach(articleSegments.indices, id: \.self) { index in
-                                Text("段落 \(index + 1)：\(articleSegments[index].title)")
-                                    .tag(index)
-                            }
-                        }
-
-                        Text(selectedSourcePreview)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(4)
-                            .textSelection(.enabled)
+                        contentBlockSelectionView
                     } else if !cleanSourceText.isEmpty {
-                        Text("当前为整页内容。拍单独段落时，请在扫描编辑页用 Adjust 框住目标段落。")
+                        Text("当前为整页内容。拍指定内容块时，请在扫描编辑页用 Adjust 框住目标区域。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -212,26 +200,90 @@ struct ArticleTranslatorView: View {
     }
 
     private var selectedSourcePreview: String {
-        selectedSegmentIndex == nil ? cleanSourceText : cleanSelectedSourceText
+        selectedSegmentIndices.isEmpty ? cleanSourceText : cleanSelectedSourceText
     }
 
     private var selectedSourceText: String {
-        guard let selectedSegmentIndex,
-              articleSegments.indices.contains(selectedSegmentIndex) else {
+        guard !selectedSegmentIndices.isEmpty else {
             return sourceText
         }
-        return articleSegments[selectedSegmentIndex].text
+        return selectedSegmentIndices
+            .sorted()
+            .filter { articleSegments.indices.contains($0) }
+            .map { articleSegments[$0].text }
+            .joined(separator: "\n\n")
     }
 
-    private var segmentSelection: Binding<Int> {
-        Binding(
-            get: { selectedSegmentIndex ?? -1 },
-            set: { newValue in
-                selectedSegmentIndex = newValue < 0 ? nil : newValue
-                translatedText = ""
-                translationError = nil
+    private var selectionSummary: String {
+        selectedSegmentIndices.isEmpty ? "当前使用整页内容" : "已选择 \(selectedSegmentIndices.count) 个内容块"
+    }
+
+    private var contentBlockSelectionView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("朗读/翻译范围")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(selectionSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-        )
+
+            HStack(spacing: 10) {
+                Button {
+                    selectedSegmentIndices = []
+                    clearTranslationResult()
+                } label: {
+                    Label("整页", systemImage: selectedSegmentIndices.isEmpty ? "checkmark.circle.fill" : "doc.text")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    selectedSegmentIndices = Set(articleSegments.indices)
+                    clearTranslationResult()
+                } label: {
+                    Label("全选", systemImage: "checklist")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+
+            ForEach(articleSegments.indices, id: \.self) { index in
+                contentBlockRow(index)
+            }
+
+            Text(selectedSourcePreview)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(4)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func contentBlockRow(_ index: Int) -> some View {
+        let isSelected = selectedSegmentIndices.contains(index)
+        return Button {
+            toggleSegmentSelection(index)
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .font(.title3)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("内容块 \(index + 1)：\(articleSegments[index].title)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text(articleSegments[index].text)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
     }
 
     private func startScan() {
@@ -325,18 +377,16 @@ struct ArticleTranslatorView: View {
     private func updateSourceText(_ text: String, captureMode: ArticleCaptureMode) {
         sourceText = text
         articleSegments = ArticleTextSegment.segments(from: text)
-        if captureMode == .paragraph, !articleSegments.isEmpty {
-            selectedSegmentIndex = 0
+        if captureMode == .contentBlock, !articleSegments.isEmpty {
+            selectedSegmentIndices = [0]
         } else {
-            selectedSegmentIndex = nil
+            selectedSegmentIndices = []
         }
     }
 
     private func refreshSegments(for text: String) {
         articleSegments = ArticleTextSegment.segments(from: text)
-        if let selectedSegmentIndex, !articleSegments.indices.contains(selectedSegmentIndex) {
-            self.selectedSegmentIndex = nil
-        }
+        selectedSegmentIndices = selectedSegmentIndices.filter { articleSegments.indices.contains($0) }
     }
 
     private func clearArticle() {
@@ -344,9 +394,23 @@ struct ArticleTranslatorView: View {
         translatedText = ""
         translationError = nil
         articleSegments = []
-        selectedSegmentIndex = nil
+        selectedSegmentIndices = []
         pendingTranslationText = ""
         speechService.stop()
+    }
+
+    private func toggleSegmentSelection(_ index: Int) {
+        if selectedSegmentIndices.contains(index) {
+            selectedSegmentIndices.remove(index)
+        } else {
+            selectedSegmentIndices.insert(index)
+        }
+        clearTranslationResult()
+    }
+
+    private func clearTranslationResult() {
+        translatedText = ""
+        translationError = nil
     }
 }
 
@@ -384,7 +448,7 @@ private struct ArticleTextSegment: Identifiable, Hashable {
         var currentLines: [String] = []
 
         for line in lines {
-            if isShortUppercaseHeading(line) {
+            if isContentBlockHeading(line) {
                 if !currentLines.isEmpty {
                     segments.append(segment(heading: currentHeading, bodyLines: currentLines))
                     currentLines = []
@@ -428,6 +492,19 @@ private struct ArticleTextSegment: Identifiable, Hashable {
             .joined(separator: "\n")
     }
 
+    private static func isContentBlockHeading(_ line: String) -> Bool {
+        if isExerciseHeading(line) {
+            return true
+        }
+
+        if isShortUppercaseHeading(line) {
+            return true
+        }
+
+        let lowercased = line.lowercased()
+        return ["reading", "writing", "speaking", "grammar", "rules", "exam advice"].contains { lowercased.contains($0) }
+    }
+
     private static func isShortUppercaseHeading(_ line: String) -> Bool {
         let letters = line.filter { $0.isLetter }
         guard letters.count >= 2, line.count <= 32 else {
@@ -438,11 +515,30 @@ private struct ArticleTextSegment: Identifiable, Hashable {
         }
         return String(letters).uppercased() == String(letters)
     }
+
+    private static func isExerciseHeading(_ line: String) -> Bool {
+        guard line.count <= 96 else {
+            return false
+        }
+
+        let lowercased = line.lowercased()
+        if lowercased.hasPrefix("look ")
+            || lowercased.hasPrefix("read ")
+            || lowercased.hasPrefix("listen ")
+            || lowercased.hasPrefix("complete ")
+            || lowercased.hasPrefix("match ")
+            || lowercased.hasPrefix("write ")
+            || lowercased.hasPrefix("work ") {
+            return true
+        }
+
+        return line.range(of: #"^\d+\s+[A-Z]"#, options: .regularExpression) != nil
+    }
 }
 
 private enum ArticleCaptureMode: String, CaseIterable, Identifiable {
     case fullPage
-    case paragraph
+    case contentBlock
 
     var id: String { rawValue }
 
@@ -450,17 +546,17 @@ private enum ArticleCaptureMode: String, CaseIterable, Identifiable {
         switch self {
         case .fullPage:
             return "整页"
-        case .paragraph:
-            return "段落"
+        case .contentBlock:
+            return "选块"
         }
     }
 
     var headline: String {
         switch self {
         case .fullPage:
-            return "拍整页文章"
-        case .paragraph:
-            return "拍单独段落"
+            return "拍整页教材"
+        case .contentBlock:
+            return "拍指定内容块"
         }
     }
 
@@ -468,8 +564,8 @@ private enum ArticleCaptureMode: String, CaseIterable, Identifiable {
         switch self {
         case .fullPage:
             return "开始拍整页"
-        case .paragraph:
-            return "开始拍段落"
+        case .contentBlock:
+            return "开始框选内容"
         }
     }
 
@@ -477,7 +573,7 @@ private enum ArticleCaptureMode: String, CaseIterable, Identifiable {
         switch self {
         case .fullPage:
             return "doc.viewfinder"
-        case .paragraph:
+        case .contentBlock:
             return "viewfinder.rectangular"
         }
     }
@@ -485,9 +581,9 @@ private enum ArticleCaptureMode: String, CaseIterable, Identifiable {
     var guidance: String {
         switch self {
         case .fullPage:
-            return "适合整页课文。拍完后可在 App 内选择整页或自动分出的段落朗读、翻译。"
-        case .paragraph:
-            return "适合只练 Ellie、Laura 这种单独一块。拍完进入编辑页后，用 Adjust 框住这一段再完成。"
+            return "适合整页教材。识别后可以选择整页，也可以勾选一个或多个内容块朗读、翻译。"
+        case .contentBlock:
+            return "适合只练某个题目、阅读框、邮件框或几段内容。拍完进入编辑页后，用 Adjust 尽量框住目标区域。"
         }
     }
 }
