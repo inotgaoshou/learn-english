@@ -16,6 +16,7 @@ struct ArticleTranslatorView: View {
     @State private var isShowingPhotoPicker = false
     @State private var isRecognizing = false
     @State private var isTranslating = false
+    @State private var imageRegionSelection: ImportedImageSelection?
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var translationConfiguration: TranslationSession.Configuration?
     @State private var sourceAccent: SpeechAccent = .american
@@ -179,6 +180,14 @@ struct ArticleTranslatorView: View {
                 }
                 .ignoresSafeArea()
             }
+            .sheet(item: $imageRegionSelection) { item in
+                ImageRegionSelectionView(image: item.image) { selectedImage in
+                    imageRegionSelection = nil
+                    recognize([selectedImage])
+                } onCancel: {
+                    imageRegionSelection = nil
+                }
+            }
             .onChange(of: selectedPhotoItem) { _, item in
                 loadPhoto(item)
             }
@@ -304,7 +313,6 @@ struct ArticleTranslatorView: View {
             return
         }
 
-        isRecognizing = true
         Task {
             do {
                 guard let data = try await item.loadTransferable(type: Data.self),
@@ -313,12 +321,11 @@ struct ArticleTranslatorView: View {
                 }
                 await MainActor.run {
                     selectedPhotoItem = nil
+                    imageRegionSelection = ImportedImageSelection(image: image.normalizedForCropping())
                 }
-                recognize([image])
             } catch {
                 await MainActor.run {
                     selectedPhotoItem = nil
-                    isRecognizing = false
                     translationError = error.localizedDescription
                 }
             }
@@ -533,6 +540,246 @@ private struct ArticleTextSegment: Identifiable, Hashable {
         }
 
         return line.range(of: #"^\d+\s+[A-Z]"#, options: .regularExpression) != nil
+    }
+}
+
+private struct ImportedImageSelection: Identifiable {
+    let id = UUID()
+    var image: UIImage
+}
+
+private struct ImageRegionSelectionView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let image: UIImage
+    let onComplete: (UIImage) -> Void
+    let onCancel: () -> Void
+
+    @State private var cropRect = CGRect(x: 0.06, y: 0.08, width: 0.88, height: 0.54)
+    @State private var dragStartRect: CGRect?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 14) {
+                Text("拖动蓝框选择要识别的教材区域")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
+
+                GeometryReader { proxy in
+                    let imageFrame = fittedImageFrame(in: proxy.size)
+                    ZStack {
+                        Color.black.opacity(0.06)
+
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+
+                        cropOverlay(in: imageFrame)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal)
+
+                VStack(spacing: 10) {
+                    Button {
+                        onComplete(image)
+                        dismiss()
+                    } label: {
+                        Label("识别整张图片", systemImage: "doc.text.viewfinder")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        onComplete(image.cropped(toNormalized: cropRect))
+                        dismiss()
+                    } label: {
+                        Label("识别框选区域", systemImage: "viewfinder.rectangular")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 14)
+            }
+            .navigationTitle("选择识别区域")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func cropOverlay(in imageFrame: CGRect) -> some View {
+        let rect = cropRect.denormalized(in: imageFrame)
+
+        return ZStack {
+            Rectangle()
+                .fill(.black.opacity(0.22))
+                .mask {
+                    Rectangle()
+                        .overlay(
+                            Rectangle()
+                                .frame(width: rect.width, height: rect.height)
+                                .position(x: rect.midX, y: rect.midY)
+                                .blendMode(.destinationOut)
+                        )
+                }
+                .allowsHitTesting(false)
+
+            Rectangle()
+                .stroke(Color.blue, lineWidth: 3)
+                .background(Color.blue.opacity(0.08))
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+                .gesture(moveGesture(in: imageFrame))
+
+            cropHandle(at: CGPoint(x: rect.minX, y: rect.minY), corner: .topLeft, imageFrame: imageFrame)
+            cropHandle(at: CGPoint(x: rect.maxX, y: rect.minY), corner: .topRight, imageFrame: imageFrame)
+            cropHandle(at: CGPoint(x: rect.minX, y: rect.maxY), corner: .bottomLeft, imageFrame: imageFrame)
+            cropHandle(at: CGPoint(x: rect.maxX, y: rect.maxY), corner: .bottomRight, imageFrame: imageFrame)
+        }
+    }
+
+    private func cropHandle(at point: CGPoint, corner: CropCorner, imageFrame: CGRect) -> some View {
+        Circle()
+            .fill(Color.blue)
+            .frame(width: 26, height: 26)
+            .overlay(Circle().stroke(.white, lineWidth: 3))
+            .position(point)
+            .gesture(resizeGesture(corner: corner, in: imageFrame))
+    }
+
+    private func moveGesture(in imageFrame: CGRect) -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                if dragStartRect == nil {
+                    dragStartRect = cropRect
+                }
+                guard let dragStartRect else {
+                    return
+                }
+                let dx = value.translation.width / max(imageFrame.width, 1)
+                let dy = value.translation.height / max(imageFrame.height, 1)
+                cropRect = dragStartRect.offsetBy(dx: dx, dy: dy).clampedToUnit()
+            }
+            .onEnded { _ in
+                dragStartRect = nil
+            }
+    }
+
+    private func resizeGesture(corner: CropCorner, in imageFrame: CGRect) -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                if dragStartRect == nil {
+                    dragStartRect = cropRect
+                }
+                guard let dragStartRect else {
+                    return
+                }
+                let dx = value.translation.width / max(imageFrame.width, 1)
+                let dy = value.translation.height / max(imageFrame.height, 1)
+                cropRect = dragStartRect.resized(corner: corner, dx: dx, dy: dy).clampedToUnit(minSize: 0.12)
+            }
+            .onEnded { _ in
+                dragStartRect = nil
+            }
+    }
+
+    private func fittedImageFrame(in size: CGSize) -> CGRect {
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0, size.width > 0, size.height > 0 else {
+            return CGRect(origin: .zero, size: size)
+        }
+
+        let scale = min(size.width / imageSize.width, size.height / imageSize.height)
+        let fittedSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(
+            x: (size.width - fittedSize.width) / 2,
+            y: (size.height - fittedSize.height) / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+    }
+}
+
+private enum CropCorner {
+    case topLeft
+    case topRight
+    case bottomLeft
+    case bottomRight
+}
+
+private extension CGRect {
+    func denormalized(in frame: CGRect) -> CGRect {
+        CGRect(
+            x: frame.minX + minX * frame.width,
+            y: frame.minY + minY * frame.height,
+            width: width * frame.width,
+            height: height * frame.height
+        )
+    }
+
+    func clampedToUnit(minSize: CGFloat = 0.08) -> CGRect {
+        let cleanWidth = min(max(width, minSize), 1)
+        let cleanHeight = min(max(height, minSize), 1)
+        let cleanX = min(max(minX, 0), 1 - cleanWidth)
+        let cleanY = min(max(minY, 0), 1 - cleanHeight)
+        return CGRect(x: cleanX, y: cleanY, width: cleanWidth, height: cleanHeight)
+    }
+
+    func resized(corner: CropCorner, dx: CGFloat, dy: CGFloat) -> CGRect {
+        switch corner {
+        case .topLeft:
+            return CGRect(x: minX + dx, y: minY + dy, width: width - dx, height: height - dy)
+        case .topRight:
+            return CGRect(x: minX, y: minY + dy, width: width + dx, height: height - dy)
+        case .bottomLeft:
+            return CGRect(x: minX + dx, y: minY, width: width - dx, height: height + dy)
+        case .bottomRight:
+            return CGRect(x: minX, y: minY, width: width + dx, height: height + dy)
+        }
+    }
+}
+
+private extension UIImage {
+    func normalizedForCropping() -> UIImage {
+        guard imageOrientation != .up else {
+            return self
+        }
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = scale
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    func cropped(toNormalized normalizedRect: CGRect) -> UIImage {
+        let normalizedImage = normalizedForCropping()
+        guard let cgImage = normalizedImage.cgImage else {
+            return normalizedImage
+        }
+
+        let pixelRect = CGRect(
+            x: normalizedRect.minX * CGFloat(cgImage.width),
+            y: normalizedRect.minY * CGFloat(cgImage.height),
+            width: normalizedRect.width * CGFloat(cgImage.width),
+            height: normalizedRect.height * CGFloat(cgImage.height)
+        ).integral
+
+        guard let croppedImage = cgImage.cropping(to: pixelRect) else {
+            return normalizedImage
+        }
+
+        return UIImage(cgImage: croppedImage, scale: normalizedImage.scale, orientation: .up)
     }
 }
 
