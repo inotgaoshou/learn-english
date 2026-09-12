@@ -307,14 +307,10 @@ struct PhoneticEditorFields: View {
     }
 
     var body: some View {
-        TextField(americanPlaceholder, text: $americanPhonetic)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
+        labeledPhoneticField(label: shouldShowBritishEditor ? "美式" : "美/英", text: $americanPhonetic, placeholder: americanPlaceholder)
 
         if shouldShowBritishEditor {
-            TextField(britishPlaceholder, text: $britishPhonetic)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+            labeledPhoneticField(label: "英式", text: $britishPhonetic, placeholder: britishPlaceholder)
         } else {
             HStack {
                 Text("英式音标同美式")
@@ -341,5 +337,18 @@ struct PhoneticEditorFields: View {
 
     private func clean(_ text: String) -> String {
         WordTextNormalizer.displayText(for: text)
+    }
+
+    private func labeledPhoneticField(label: String, text: Binding<String>, placeholder: String) -> some View {
+        HStack(spacing: 10) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 38, alignment: .leading)
+
+            TextField(placeholder, text: text)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        }
     }
 }
