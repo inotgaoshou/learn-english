@@ -27,33 +27,47 @@ struct ArticleTranslatorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("开始") {
-                    PrimaryActionRow(
-                        title: "拍整页文章",
-                        subtitle: "适合整页课文，识别后可选择整页或自动分出的段落",
-                        systemImage: "doc.viewfinder"
-                    ) {
-                        captureMode = .fullPage
-                        startScan()
+                Section("拍摄模式") {
+                    Picker("模式", selection: $captureMode) {
+                        ForEach(ArticleCaptureMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
                     }
+                    .pickerStyle(.segmented)
 
-                    PrimaryActionRow(
-                        title: "拍一个段落",
-                        subtitle: "像拍题一样只框选 Ellie、Laura 这种单独一块",
-                        systemImage: "viewfinder.rectangular"
-                    ) {
-                        captureMode = .paragraph
-                        startScan()
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: captureMode.systemImage)
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(captureMode.headline)
+                                .font(.headline)
+                            Text(captureMode.guidance)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .padding(.vertical, 4)
 
-                    PrimaryActionRow(
-                        title: "导入文章图片",
-                        subtitle: "从相册导入教材照片或截图，再选择范围朗读翻译",
-                        systemImage: "photo.on.rectangle"
-                    ) {
-                        captureMode = .fullPage
+                    Button {
+                        startScan()
+                    } label: {
+                        Label(captureMode.scanButtonTitle, systemImage: "camera.viewfinder")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
                         isShowingPhotoPicker = true
+                    } label: {
+                        Label("从相册导入图片", systemImage: "photo.on.rectangle")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.bordered)
                 }
 
                 Section("英文原文") {
@@ -426,7 +440,54 @@ private struct ArticleTextSegment: Identifiable, Hashable {
     }
 }
 
-private enum ArticleCaptureMode {
+private enum ArticleCaptureMode: String, CaseIterable, Identifiable {
     case fullPage
     case paragraph
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .fullPage:
+            return "整页"
+        case .paragraph:
+            return "段落"
+        }
+    }
+
+    var headline: String {
+        switch self {
+        case .fullPage:
+            return "拍整页文章"
+        case .paragraph:
+            return "拍单独段落"
+        }
+    }
+
+    var scanButtonTitle: String {
+        switch self {
+        case .fullPage:
+            return "开始拍整页"
+        case .paragraph:
+            return "开始拍段落"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .fullPage:
+            return "doc.viewfinder"
+        case .paragraph:
+            return "viewfinder.rectangular"
+        }
+    }
+
+    var guidance: String {
+        switch self {
+        case .fullPage:
+            return "适合整页课文。拍完后可在 App 内选择整页或自动分出的段落朗读、翻译。"
+        case .paragraph:
+            return "适合只练 Ellie、Laura 这种单独一块。拍完进入编辑页后，用 Adjust 框住这一段再完成。"
+        }
+    }
 }
