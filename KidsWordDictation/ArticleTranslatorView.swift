@@ -9,6 +9,9 @@ struct ArticleTranslatorView: View {
     @State private var sourceText = ""
     @State private var translatedText = ""
     @State private var translationError: String?
+    @State private var articleSegments: [ArticleTextSegment] = []
+    @State private var selectedSegmentIndex: Int?
+    @State private var pendingTranslationText = ""
     @State private var isShowingScanner = false
     @State private var isShowingPhotoPicker = false
     @State private var isRecognizing = false
@@ -28,6 +31,25 @@ struct ArticleTranslatorView: View {
                         .frame(minHeight: 180)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .onChange(of: sourceText) { _, newValue in
+                            refreshSegments(for: newValue)
+                        }
+
+                    if !articleSegments.isEmpty {
+                        Picker("范围", selection: segmentSelection) {
+                            Text("整页").tag(-1)
+                            ForEach(articleSegments.indices, id: \.self) { index in
+                                Text("段落 \(index + 1)：\(articleSegments[index].title)")
+                                    .tag(index)
+                            }
+                        }
+
+                        Text(selectedSourcePreview)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(4)
+                            .textSelection(.enabled)
+                    }
 
                     Picker("发音", selection: $sourceAccent) {
                         ForEach(SpeechAccent.allCases) { accent in
@@ -44,7 +66,7 @@ struct ArticleTranslatorView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        .disabled(cleanSourceText.isEmpty)
+                        .disabled(cleanSelectedSourceText.isEmpty)
 
                         Button {
                             translateSource()
@@ -53,7 +75,7 @@ struct ArticleTranslatorView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(cleanSourceText.isEmpty || isTranslating)
+                        .disabled(cleanSelectedSourceText.isEmpty || isTranslating)
                     }
                 }
 
@@ -95,9 +117,7 @@ struct ArticleTranslatorView: View {
                         }
 
                         Button {
-                            sourceText = ""
-                            translatedText = ""
-                            translationError = nil
+                            clearArticle()
                         } label: {
                             Label("清空", systemImage: "trash")
                         }
@@ -135,6 +155,33 @@ struct ArticleTranslatorView: View {
 
     private var cleanSourceText: String {
         sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var cleanSelectedSourceText: String {
+        WordTextNormalizer.displayText(for: selectedSourceText)
+    }
+
+    private var selectedSourcePreview: String {
+        selectedSegmentIndex == nil ? cleanSourceText : cleanSelectedSourceText
+    }
+
+    private var selectedSourceText: String {
+        guard let selectedSegmentIndex,
+              articleSegments.indices.contains(selectedSegmentIndex) else {
+            return sourceText
+        }
+        return articleSegments[selectedSegmentIndex].text
+    }
+
+    private var segmentSelection: Binding<Int> {
+        Binding(
+            get: { selectedSegmentIndex ?? -1 },
+            set: { newValue in
+                selectedSegmentIndex = newValue < 0 ? nil : newValue
+                translatedText = ""
+                translationError = nil
+            }
+        )
     }
 
     private func startScan() {
@@ -183,7 +230,7 @@ struct ArticleTranslatorView: View {
                 let text = try await ocrService.recognizeText(from: images)
                 await MainActor.run {
                     isRecognizing = false
-                    sourceText = text
+                    updateSourceText(text)
                     translatedText = ""
                     translationError = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "没有识别到英文内容。" : nil
                 }
@@ -197,12 +244,13 @@ struct ArticleTranslatorView: View {
     }
 
     private func speakSource(accent: SpeechAccent) {
-        speechService.speak(cleanSourceText, rate: 0.45, repetitions: 1, accent: accent)
+        speechService.speak(cleanSelectedSourceText, rate: 0.45, repetitions: 1, accent: accent)
     }
 
     private func translateSource() {
         translatedText = ""
         translationError = nil
+        pendingTranslationText = cleanSelectedSourceText
         isTranslating = true
         translationConfiguration = TranslationSession.Configuration(
             source: Locale.Language(identifier: "en"),
@@ -215,12 +263,125 @@ struct ArticleTranslatorView: View {
     private func runTranslation(_ session: TranslationSession) async {
         do {
             try await session.prepareTranslation()
-            let response = try await session.translate(cleanSourceText)
+            let response = try await session.translate(pendingTranslationText)
             translatedText = response.targetText
             translationError = nil
         } catch {
             translationError = "系统翻译暂不可用：\(error.localizedDescription)。请确认设备系统支持翻译，并已安装英文到中文语言包。"
         }
         isTranslating = false
+    }
+
+    private func updateSourceText(_ text: String) {
+        sourceText = text
+        articleSegments = ArticleTextSegment.segments(from: text)
+        selectedSegmentIndex = nil
+    }
+
+    private func refreshSegments(for text: String) {
+        articleSegments = ArticleTextSegment.segments(from: text)
+        if let selectedSegmentIndex, !articleSegments.indices.contains(selectedSegmentIndex) {
+            self.selectedSegmentIndex = nil
+        }
+    }
+
+    private func clearArticle() {
+        sourceText = ""
+        translatedText = ""
+        translationError = nil
+        articleSegments = []
+        selectedSegmentIndex = nil
+        pendingTranslationText = ""
+        speechService.stop()
+    }
+}
+
+private struct ArticleTextSegment: Identifiable, Hashable {
+    let id = UUID()
+    let title: String
+    let text: String
+
+    static func segments(from text: String) -> [ArticleTextSegment] {
+        let blankLineSegments = text
+            .components(separatedBy: "\n\n")
+            .map(cleanBlock)
+            .filter { !$0.isEmpty }
+
+        if blankLineSegments.count > 1 {
+            return blankLineSegments.map(segment)
+        }
+
+        let headingSegments = segmentsByHeadings(from: text)
+        if headingSegments.count > 1 {
+            return headingSegments
+        }
+
+        return []
+    }
+
+    private static func segmentsByHeadings(from text: String) -> [ArticleTextSegment] {
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { WordTextNormalizer.displayText(for: $0) }
+            .filter { !$0.isEmpty }
+
+        var segments: [ArticleTextSegment] = []
+        var currentHeading = ""
+        var currentLines: [String] = []
+
+        for line in lines {
+            if isShortUppercaseHeading(line) {
+                if !currentLines.isEmpty {
+                    segments.append(segment(heading: currentHeading, bodyLines: currentLines))
+                    currentLines = []
+                }
+                currentHeading = line
+            } else {
+                currentLines.append(line)
+            }
+        }
+
+        if !currentLines.isEmpty {
+            segments.append(segment(heading: currentHeading, bodyLines: currentLines))
+        }
+
+        return segments.filter { $0.text.split(separator: " ").count >= 6 }
+    }
+
+    private static func segment(_ text: String) -> ArticleTextSegment {
+        ArticleTextSegment(title: title(for: text), text: text)
+    }
+
+    private static func segment(heading: String, bodyLines: [String]) -> ArticleTextSegment {
+        let body = bodyLines.joined(separator: "\n")
+        let text = heading.isEmpty ? body : "\(heading)\n\(body)"
+        return ArticleTextSegment(title: heading.isEmpty ? title(for: body) : heading, text: text)
+    }
+
+    private static func title(for text: String) -> String {
+        let firstLine = text
+            .components(separatedBy: .newlines)
+            .map { WordTextNormalizer.displayText(for: $0) }
+            .first { !$0.isEmpty } ?? "内容"
+        return String(firstLine.prefix(24))
+    }
+
+    private static func cleanBlock(_ text: String) -> String {
+        text
+            .components(separatedBy: .newlines)
+            .map { WordTextNormalizer.displayText(for: $0) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
+
+    private static func isShortUppercaseHeading(_ line: String) -> Bool {
+        let letters = line.filter { $0.isLetter }
+        guard letters.count >= 2, line.count <= 32 else {
+            return false
+        }
+        guard line.rangeOfCharacter(from: CharacterSet.decimalDigits) == nil else {
+            return false
+        }
+        return String(letters).uppercased() == String(letters)
     }
 }
