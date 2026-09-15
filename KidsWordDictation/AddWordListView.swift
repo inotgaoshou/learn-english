@@ -56,6 +56,9 @@ struct AddWordListView: View {
                             if newTranslation.isEmpty {
                                 newTranslation = WordTranslationLookup.translation(for: newValue)
                             }
+                            if newSentence.isEmpty {
+                                newSentence = WordSentenceLookup.sentence(for: newValue)
+                            }
                         }
 
                     PhoneticEditorFields(
@@ -138,6 +141,9 @@ struct AddWordListView: View {
                                             if draft.translation.isEmpty {
                                                 draft.translation = WordTranslationLookup.translation(for: newValue)
                                             }
+                                            if draft.sentence.isEmpty {
+                                                draft.sentence = WordSentenceLookup.sentence(for: newValue)
+                                            }
                                         }
 
                                     PhoneticEditorFields(
@@ -159,7 +165,11 @@ struct AddWordListView: View {
                                 Button {
                                     speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: newWordAccent)
                                 } label: {
-                                    Image(systemName: "speaker.wave.2.circle")
+                                    VStack(spacing: 2) {
+                                        Image(systemName: "speaker.wave.2.circle")
+                                        Text("发音")
+                                            .font(.caption2)
+                                    }
                                 }
                                 .buttonStyle(.borderless)
                                 .disabled(WordTextNormalizer.normalize(draft.text).isEmpty)
@@ -168,7 +178,11 @@ struct AddWordListView: View {
                                 Button {
                                     speechService.speak(draft.sentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
                                 } label: {
-                                    Image(systemName: "quote.bubble")
+                                    VStack(spacing: 2) {
+                                        Image(systemName: "quote.bubble")
+                                        Text("例句")
+                                            .font(.caption2)
+                                    }
                                 }
                                 .buttonStyle(.borderless)
                                 .disabled(WordTextNormalizer.normalize(draft.sentence).isEmpty)

@@ -64,6 +64,9 @@ struct WordListDetailView: View {
                                         if word.translation.isEmpty {
                                             word.translation = WordTranslationLookup.translation(for: newValue)
                                         }
+                                        if word.sentence.isEmpty {
+                                            word.sentence = WordSentenceLookup.sentence(for: newValue)
+                                        }
                                     }
 
                             }
@@ -85,7 +88,11 @@ struct WordListDetailView: View {
                         Button {
                             speechService.speak(word.text, rate: 0.45, repetitions: 1, accent: newWordAccent)
                         } label: {
-                            Image(systemName: "speaker.wave.2.circle")
+                            VStack(spacing: 2) {
+                                Image(systemName: "speaker.wave.2.circle")
+                                Text("发音")
+                                    .font(.caption2)
+                            }
                         }
                         .buttonStyle(.borderless)
                         .disabled(word.normalizedText.isEmpty)
@@ -94,7 +101,11 @@ struct WordListDetailView: View {
                         Button {
                             speechService.speak(word.sentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
                         } label: {
-                            Image(systemName: "quote.bubble")
+                            VStack(spacing: 2) {
+                                Image(systemName: "quote.bubble")
+                                Text("例句")
+                                    .font(.caption2)
+                            }
                         }
                         .buttonStyle(.borderless)
                         .disabled(WordTextNormalizer.normalize(word.sentence).isEmpty)
@@ -151,6 +162,9 @@ struct WordListDetailView: View {
                     }
                     if newTranslation.isEmpty {
                         newTranslation = WordTranslationLookup.translation(for: newValue)
+                    }
+                    if newSentence.isEmpty {
+                        newSentence = WordSentenceLookup.sentence(for: newValue)
                     }
                 }
 

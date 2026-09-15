@@ -91,4 +91,22 @@ final class WordTextExtractorTests: XCTestCase {
         XCTAssertEqual(word.phonetic, "/waɪf/")
         XCTAssertEqual(word.britishPhonetic, "/waɪf/")
     }
+
+    func testKetFamilyWordsAddPhoneticsTranslationsAndSentences() {
+        let words = WordTextExtractor.extractWords(from: """
+        family tree
+        teenager
+        child
+        """)
+
+        XCTAssertEqual(words.map(\.text), ["family tree", "teenager", "child"])
+        XCTAssertEqual(words.map(\.translation), ["家谱；家庭关系图", "青少年", "儿童；孩子"])
+        XCTAssertEqual(words.map(\.phonetic), ["/ˈfæməli triː/", "/ˈtiːneɪdʒɚ/", "/tʃaɪld/"])
+        XCTAssertEqual(words.map(\.britishPhonetic), ["/ˈfæməli triː/", "/ˈtiːneɪdʒə/", "/tʃaɪld/"])
+        XCTAssertEqual(words.map(\.sentence), [
+            "This is my family tree.",
+            "My sister is a teenager.",
+            "The child is reading a book."
+        ])
+    }
 }
