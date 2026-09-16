@@ -45,32 +45,28 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             return
         }
 
-        configureAudioSessionForSpeech()
-        playbackGeneration += 1
-        let generation = playbackGeneration
-        let wasActive = synthesizer.isSpeaking || synthesizer.isPaused
-        prepareSynthesizerForReplacement()
+        let repeatCount = max(1, repetitions)
+        let utterances = (0..<repeatCount).map { _ in
+            makeUtterance(text: cleanText, rate: rate, accent: accent, delay: 0.35)
+        }
+        play(utterances)
+    }
+
+    func speakSequence(_ texts: [String], rate: Float, repetitions: Int = 1, accent: SpeechAccent = .american) {
+        let cleanTexts = texts
+            .map { WordTextNormalizer.displayText(for: $0) }
+            .filter { !$0.isEmpty }
+        guard !cleanTexts.isEmpty else {
+            return
+        }
 
         let repeatCount = max(1, repetitions)
-        pendingUtterances = (0..<repeatCount).map { _ in
-            let utterance = AVSpeechUtterance(string: cleanText)
-            utterance.voice = AVSpeechSynthesisVoice(language: accent.languageCode) ?? AVSpeechSynthesisVoice(language: "en")
-            utterance.rate = rate
-            utterance.volume = 1.0
-            utterance.postUtteranceDelay = 0.35
-            return utterance
-        }
-
-        if wasActive {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
-                guard let self, self.playbackGeneration == generation else {
-                    return
-                }
-                self.speakNextUtterance(for: generation)
+        let utterances = (0..<repeatCount).flatMap { _ in
+            cleanTexts.map { text in
+                makeUtterance(text: text, rate: rate, accent: accent, delay: 0.55)
             }
-        } else {
-            speakNextUtterance(for: generation)
         }
+        play(utterances)
     }
 
     func pauseOrContinue() {
@@ -137,6 +133,35 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         synthesizer.delegate = self
         isSpeaking = false
         isPaused = false
+    }
+
+    private func play(_ utterances: [AVSpeechUtterance]) {
+        configureAudioSessionForSpeech()
+        playbackGeneration += 1
+        let generation = playbackGeneration
+        let wasActive = synthesizer.isSpeaking || synthesizer.isPaused
+        prepareSynthesizerForReplacement()
+        pendingUtterances = utterances
+
+        if wasActive {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+                guard let self, self.playbackGeneration == generation else {
+                    return
+                }
+                self.speakNextUtterance(for: generation)
+            }
+        } else {
+            speakNextUtterance(for: generation)
+        }
+    }
+
+    private func makeUtterance(text: String, rate: Float, accent: SpeechAccent, delay: TimeInterval) -> AVSpeechUtterance {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: accent.languageCode) ?? AVSpeechSynthesisVoice(language: "en")
+        utterance.rate = rate
+        utterance.volume = 1.0
+        utterance.postUtteranceDelay = delay
+        return utterance
     }
 
     private func configureAudioSessionForSpeech() {

@@ -20,7 +20,43 @@ struct WordListDetailView: View {
                 TextField("分类", text: $wordList.category)
             }
 
-            Section {
+            Section("播放与听写") {
+                Picker("发音", selection: $newWordAccent) {
+                    ForEach(SpeechAccent.allCases) { accent in
+                        Text(accent.title).tag(accent)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Button {
+                    speakWordListInOrder()
+                } label: {
+                    Label("\(newWordAccent.title)顺序朗读单词", systemImage: "play.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(wordList.words.isEmpty)
+
+                HStack(spacing: 10) {
+                    Button {
+                        speechService.pauseOrContinue()
+                    } label: {
+                        Label(speechService.isPaused ? "继续" : "暂停", systemImage: speechService.isPaused ? "play.fill" : "pause.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!speechService.isSpeaking && !speechService.isPaused)
+
+                    Button {
+                        speechService.stop()
+                    } label: {
+                        Label("停止", systemImage: "stop.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!speechService.isSpeaking && !speechService.isPaused)
+                }
+
                 NavigationLink {
                     DictationView(wordList: wordList, mode: .ordered)
                 } label: {
@@ -234,6 +270,10 @@ struct WordListDetailView: View {
         newTranslation = ""
         newSentence = ""
         isAddWordExpanded = false
+    }
+
+    private func speakWordListInOrder() {
+        speechService.speakSequence(wordList.words.map(\.text), rate: 0.45, accent: newWordAccent)
     }
 
     private func requestDeleteWord(id: WordItem.ID) {

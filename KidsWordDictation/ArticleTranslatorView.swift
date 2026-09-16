@@ -93,43 +93,15 @@ struct ArticleTranslatorView: View {
                         if !articleSegments.isEmpty {
                             contentBlockSelectionView
                         }
+                        if !cleanSelectedSourceText.isEmpty {
+                            articleActionControls
+                        }
                         articleReadingView
                         if articleSegments.isEmpty, !cleanSourceText.isEmpty {
                             Text("当前为整页内容。拍指定内容块时，请在扫描编辑页用 Adjust 框住目标区域。")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                    }
-
-                    Picker("发音", selection: $sourceAccent) {
-                        ForEach(SpeechAccent.allCases) { accent in
-                            Text(accent.title).tag(accent)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    HStack(spacing: 12) {
-                        Button {
-                            speakSource(accent: sourceAccent)
-                        } label: {
-                            Label("\(sourceAccent.title)朗读", systemImage: "speaker.wave.2")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(cleanSelectedSourceText.isEmpty)
-
-                        Button {
-                            translateSource()
-                        } label: {
-                            Label("翻译中文", systemImage: "character.bubble")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(cleanSelectedSourceText.isEmpty || isTranslating)
-                    }
-
-                    if !cleanSelectedSourceText.isEmpty {
-                        articlePlaybackControls
                     }
                 }
 
@@ -277,7 +249,7 @@ struct ArticleTranslatorView: View {
                         title: "整页内容",
                         text: cleanSourceText,
                         isSelected: true,
-                        badgeTitle: "整页朗读",
+                        badgeTitle: "整页范围",
                         action: nil
                     )
                 }
@@ -287,7 +259,7 @@ struct ArticleTranslatorView: View {
                         title: "内容块 \(index + 1)：\(articleSegments[index].title)",
                         text: articleSegments[index].text,
                         isSelected: selectedSegmentIndices.contains(index),
-                        badgeTitle: selectedSegmentIndices.contains(index) ? "已选朗读" : "点选朗读",
+                        badgeTitle: selectedSegmentIndices.contains(index) ? "已选范围" : "点选范围",
                         action: {
                             toggleSegmentSelection(index)
                         }
@@ -358,7 +330,7 @@ struct ArticleTranslatorView: View {
                     selectedSegmentIndices = []
                     clearTranslationResult()
                 } label: {
-                    Label("整页朗读", systemImage: selectedSegmentIndices.isEmpty ? "checkmark.circle.fill" : "doc.text")
+                    Label("整页范围", systemImage: selectedSegmentIndices.isEmpty ? "checkmark.circle.fill" : "doc.text")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -377,6 +349,39 @@ struct ArticleTranslatorView: View {
             Text("也可以直接点击下方内容块，选择一段或多段来朗读和翻译。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var articleActionControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("发音", selection: $sourceAccent) {
+                ForEach(SpeechAccent.allCases) { accent in
+                    Text(accent.title).tag(accent)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            HStack(spacing: 10) {
+                Button {
+                    speakSource(accent: sourceAccent)
+                } label: {
+                    Label("\(sourceAccent.title)朗读所选", systemImage: "speaker.wave.2")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(cleanSelectedSourceText.isEmpty)
+
+                Button {
+                    translateSource()
+                } label: {
+                    Label("翻译所选", systemImage: "character.bubble")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(cleanSelectedSourceText.isEmpty || isTranslating)
+            }
+
+            articlePlaybackControls
         }
     }
 
