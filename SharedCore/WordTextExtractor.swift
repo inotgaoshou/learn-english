@@ -99,7 +99,8 @@ public enum WordTextExtractor {
             return false
         }
 
-        if !WordTranslationLookup.translation(for: normalized).isEmpty || !WordPhoneticLookup.phonetic(for: normalized).isEmpty {
+        let metadata = WordMetadataProvider.metadata(for: normalized)
+        if !metadata.translation.isEmpty || !metadata.americanPhonetic.isEmpty || !metadata.britishPhonetic.isEmpty {
             return false
         }
 

@@ -91,18 +91,17 @@ struct WordListDetailView: View {
                                     .autocorrectionDisabled()
                                     .onChange(of: word.text) { _, newValue in
                                         word.normalizedText = WordTextNormalizer.normalize(newValue)
-                                        if word.phonetic.isEmpty {
-                                            word.phonetic = WordPhoneticLookup.phonetic(for: newValue)
-                                        }
-                                        if word.britishPhonetic.isEmpty {
-                                            word.britishPhonetic = WordPhoneticLookup.britishPhonetic(for: newValue)
-                                        }
-                                        if word.translation.isEmpty {
-                                            word.translation = WordTranslationLookup.translation(for: newValue)
-                                        }
-                                        if word.sentence.isEmpty {
-                                            word.sentence = WordSentenceLookup.sentence(for: newValue)
-                                        }
+                                        let metadata = MetadataCompletion.mergedMetadata(
+                                            for: newValue,
+                                            americanPhonetic: word.phonetic,
+                                            britishPhonetic: word.britishPhonetic,
+                                            translation: word.translation,
+                                            sentence: word.sentence
+                                        )
+                                        word.phonetic = metadata.americanPhonetic
+                                        word.britishPhonetic = metadata.britishPhonetic
+                                        word.translation = metadata.translation
+                                        word.sentence = metadata.sentence
                                     }
 
                             }
@@ -119,6 +118,26 @@ struct WordListDetailView: View {
                             TextField("英文例句", text: $word.sentence)
                                 .textInputAutocapitalization(.sentences)
                                 .autocorrectionDisabled()
+
+                            MetadataCompletionRow(
+                                missingLabels: MetadataCompletion.missingLabels(
+                                    americanPhonetic: word.phonetic,
+                                    britishPhonetic: word.britishPhonetic,
+                                    translation: word.translation
+                                )
+                            ) {
+                                let metadata = MetadataCompletion.mergedMetadata(
+                                    for: word.text,
+                                    americanPhonetic: word.phonetic,
+                                    britishPhonetic: word.britishPhonetic,
+                                    translation: word.translation,
+                                    sentence: word.sentence
+                                )
+                                word.phonetic = metadata.americanPhonetic
+                                word.britishPhonetic = metadata.britishPhonetic
+                                word.translation = metadata.translation
+                                word.sentence = metadata.sentence
+                            }
                         }
 
                         Button {
@@ -190,18 +209,17 @@ struct WordListDetailView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .onChange(of: newWord) { _, newValue in
-                    if newPhonetic.isEmpty {
-                        newPhonetic = WordPhoneticLookup.phonetic(for: newValue)
-                    }
-                    if newBritishPhonetic.isEmpty {
-                        newBritishPhonetic = WordPhoneticLookup.britishPhonetic(for: newValue)
-                    }
-                    if newTranslation.isEmpty {
-                        newTranslation = WordTranslationLookup.translation(for: newValue)
-                    }
-                    if newSentence.isEmpty {
-                        newSentence = WordSentenceLookup.sentence(for: newValue)
-                    }
+                    let metadata = MetadataCompletion.mergedMetadata(
+                        for: newValue,
+                        americanPhonetic: newPhonetic,
+                        britishPhonetic: newBritishPhonetic,
+                        translation: newTranslation,
+                        sentence: newSentence
+                    )
+                    newPhonetic = metadata.americanPhonetic
+                    newBritishPhonetic = metadata.britishPhonetic
+                    newTranslation = metadata.translation
+                    newSentence = metadata.sentence
                 }
 
             PhoneticEditorFields(
@@ -214,6 +232,26 @@ struct WordListDetailView: View {
             TextField("英文例句", text: $newSentence)
                 .textInputAutocapitalization(.sentences)
                 .autocorrectionDisabled()
+
+            MetadataCompletionRow(
+                missingLabels: MetadataCompletion.missingLabels(
+                    americanPhonetic: newPhonetic,
+                    britishPhonetic: newBritishPhonetic,
+                    translation: newTranslation
+                )
+            ) {
+                let metadata = MetadataCompletion.mergedMetadata(
+                    for: newWord,
+                    americanPhonetic: newPhonetic,
+                    britishPhonetic: newBritishPhonetic,
+                    translation: newTranslation,
+                    sentence: newSentence
+                )
+                newPhonetic = metadata.americanPhonetic
+                newBritishPhonetic = metadata.britishPhonetic
+                newTranslation = metadata.translation
+                newSentence = metadata.sentence
+            }
 
             Picker("发音", selection: $newWordAccent) {
                 ForEach(SpeechAccent.allCases) { accent in

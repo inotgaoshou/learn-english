@@ -92,6 +92,35 @@ final class WordTextExtractorTests: XCTestCase {
         XCTAssertEqual(word.britishPhonetic, "/waɪf/")
     }
 
+    func testWordMetadataProviderMarksMissingUnknownWords() {
+        let word = WordItem(text: "zzunknown")
+
+        XCTAssertEqual(word.missingMetadataLabels, ["美式音标", "英式音标", "中文释义"])
+        XCTAssertFalse(word.hasCompleteRequiredMetadata)
+    }
+
+    func testWordItemBackfillsMissingMetadataWhenDecodingOldData() throws {
+        let json = """
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "text": "chair",
+          "normalizedText": "chair",
+          "phonetic": "",
+          "britishPhonetic": "",
+          "translation": "",
+          "sentence": ""
+        }
+        """.data(using: .utf8)!
+
+        let word = try JSONDecoder().decode(WordItem.self, from: json)
+
+        XCTAssertEqual(word.phonetic, "/tʃer/")
+        XCTAssertEqual(word.britishPhonetic, "/tʃeə/")
+        XCTAssertEqual(word.translation, "椅子")
+        XCTAssertEqual(word.sentence, "Please sit on the chair.")
+        XCTAssertTrue(word.hasCompleteRequiredMetadata)
+    }
+
     func testKetFamilyWordsAddPhoneticsTranslationsAndSentences() {
         let words = WordTextExtractor.extractWords(from: """
         family tree
@@ -107,6 +136,50 @@ final class WordTextExtractorTests: XCTestCase {
             "This is my family tree.",
             "My sister is a teenager.",
             "The child is reading a book."
+        ])
+    }
+
+    func testKetExtendedWordsAddMetadata() {
+        let words = WordTextExtractor.extractWords(from: """
+        granny
+        nephew
+        niece
+        musician
+        village
+        """)
+
+        XCTAssertEqual(words.map(\.text), ["granny", "nephew", "niece", "musician", "village"])
+        XCTAssertEqual(words.map(\.translation), ["奶奶；外婆；祖母", "侄子；外甥", "侄女；外甥女", "音乐家", "村庄"])
+        XCTAssertEqual(words.map(\.phonetic), ["/ˈɡræni/", "/ˈnefjuː/", "/niːs/", "/mjuˈzɪʃən/", "/ˈvɪlɪdʒ/"])
+        XCTAssertEqual(words.map(\.britishPhonetic), ["/ˈɡræni/", "/ˈnefjuː/", "/niːs/", "/mjuˈzɪʃən/", "/ˈvɪlɪdʒ/"])
+        XCTAssertEqual(words.map(\.sentence), [
+            "My granny lives in a small town.",
+            "My nephew is seven years old.",
+            "My niece likes music.",
+            "My mum is a musician.",
+            "They live in a small village."
+        ])
+    }
+
+    func testKetHomeWordsAddMetadata() {
+        let words = WordTextExtractor.extractWords(from: """
+        chair
+        floor
+        fridge
+        light
+        garage
+        """)
+
+        XCTAssertEqual(words.map(\.text), ["chair", "floor", "fridge", "light", "garage"])
+        XCTAssertEqual(words.map(\.translation), ["椅子", "地板；楼层", "冰箱", "灯；光", "车库"])
+        XCTAssertEqual(words.map(\.phonetic), ["/tʃer/", "/flɔːr/", "/frɪdʒ/", "/laɪt/", "/ɡəˈrɑːʒ/"])
+        XCTAssertEqual(words.map(\.britishPhonetic), ["/tʃeə/", "/flɔː/", "/frɪdʒ/", "/laɪt/", "/ˈɡærɑːʒ/"])
+        XCTAssertEqual(words.map(\.sentence), [
+            "Please sit on the chair.",
+            "The bag is on the floor.",
+            "There is milk in the fridge.",
+            "Please turn on the light.",
+            "The car is in the garage."
         ])
     }
 }

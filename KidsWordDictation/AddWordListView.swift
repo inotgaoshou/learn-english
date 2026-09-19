@@ -47,18 +47,17 @@ struct AddWordListView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .onChange(of: newWord) { _, newValue in
-                            if newPhonetic.isEmpty {
-                                newPhonetic = WordPhoneticLookup.phonetic(for: newValue)
-                            }
-                            if newBritishPhonetic.isEmpty {
-                                newBritishPhonetic = WordPhoneticLookup.britishPhonetic(for: newValue)
-                            }
-                            if newTranslation.isEmpty {
-                                newTranslation = WordTranslationLookup.translation(for: newValue)
-                            }
-                            if newSentence.isEmpty {
-                                newSentence = WordSentenceLookup.sentence(for: newValue)
-                            }
+                            let metadata = MetadataCompletion.mergedMetadata(
+                                for: newValue,
+                                americanPhonetic: newPhonetic,
+                                britishPhonetic: newBritishPhonetic,
+                                translation: newTranslation,
+                                sentence: newSentence
+                            )
+                            newPhonetic = metadata.americanPhonetic
+                            newBritishPhonetic = metadata.britishPhonetic
+                            newTranslation = metadata.translation
+                            newSentence = metadata.sentence
                         }
 
                     PhoneticEditorFields(
@@ -71,6 +70,26 @@ struct AddWordListView: View {
                     TextField("英文例句", text: $newSentence)
                         .textInputAutocapitalization(.sentences)
                         .autocorrectionDisabled()
+
+                    MetadataCompletionRow(
+                        missingLabels: MetadataCompletion.missingLabels(
+                            americanPhonetic: newPhonetic,
+                            britishPhonetic: newBritishPhonetic,
+                            translation: newTranslation
+                        )
+                    ) {
+                        let metadata = MetadataCompletion.mergedMetadata(
+                            for: newWord,
+                            americanPhonetic: newPhonetic,
+                            britishPhonetic: newBritishPhonetic,
+                            translation: newTranslation,
+                            sentence: newSentence
+                        )
+                        newPhonetic = metadata.americanPhonetic
+                        newBritishPhonetic = metadata.britishPhonetic
+                        newTranslation = metadata.translation
+                        newSentence = metadata.sentence
+                    }
 
                     Picker("发音", selection: $newWordAccent) {
                         ForEach(SpeechAccent.allCases) { accent in
@@ -132,18 +151,17 @@ struct AddWordListView: View {
                                         .textInputAutocapitalization(.never)
                                         .autocorrectionDisabled()
                                         .onChange(of: draft.text) { _, newValue in
-                                            if draft.phonetic.isEmpty {
-                                                draft.phonetic = WordPhoneticLookup.phonetic(for: newValue)
-                                            }
-                                            if draft.britishPhonetic.isEmpty {
-                                                draft.britishPhonetic = WordPhoneticLookup.britishPhonetic(for: newValue)
-                                            }
-                                            if draft.translation.isEmpty {
-                                                draft.translation = WordTranslationLookup.translation(for: newValue)
-                                            }
-                                            if draft.sentence.isEmpty {
-                                                draft.sentence = WordSentenceLookup.sentence(for: newValue)
-                                            }
+                                            let metadata = MetadataCompletion.mergedMetadata(
+                                                for: newValue,
+                                                americanPhonetic: draft.phonetic,
+                                                britishPhonetic: draft.britishPhonetic,
+                                                translation: draft.translation,
+                                                sentence: draft.sentence
+                                            )
+                                            draft.phonetic = metadata.americanPhonetic
+                                            draft.britishPhonetic = metadata.britishPhonetic
+                                            draft.translation = metadata.translation
+                                            draft.sentence = metadata.sentence
                                         }
 
                                     PhoneticEditorFields(
@@ -158,6 +176,26 @@ struct AddWordListView: View {
                                     TextField("英文例句", text: $draft.sentence)
                                         .textInputAutocapitalization(.sentences)
                                         .autocorrectionDisabled()
+
+                                    MetadataCompletionRow(
+                                        missingLabels: MetadataCompletion.missingLabels(
+                                            americanPhonetic: draft.phonetic,
+                                            britishPhonetic: draft.britishPhonetic,
+                                            translation: draft.translation
+                                        )
+                                    ) {
+                                        let metadata = MetadataCompletion.mergedMetadata(
+                                            for: draft.text,
+                                            americanPhonetic: draft.phonetic,
+                                            britishPhonetic: draft.britishPhonetic,
+                                            translation: draft.translation,
+                                            sentence: draft.sentence
+                                        )
+                                        draft.phonetic = metadata.americanPhonetic
+                                        draft.britishPhonetic = metadata.britishPhonetic
+                                        draft.translation = metadata.translation
+                                        draft.sentence = metadata.sentence
+                                    }
                                 }
 
                                 Spacer()

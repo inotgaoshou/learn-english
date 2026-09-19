@@ -188,6 +188,12 @@ struct DictationView: View {
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
+                        if !item.missingMetadataLabels.isEmpty {
+                            Text("待补全：\(item.missingMetadataLabels.joined(separator: "、"))")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                                .lineLimit(1)
+                        }
                         if !item.sentence.isEmpty {
                             Text(item.sentence)
                                 .font(.caption)
@@ -260,6 +266,11 @@ struct DictationView: View {
                 Text(result.item.translation)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+            if !result.item.missingMetadataLabels.isEmpty {
+                Text("待补全：\(result.item.missingMetadataLabels.joined(separator: "、"))")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
         }
         .frame(maxWidth: .infinity)

@@ -58,18 +58,17 @@ struct ScanReviewView: View {
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                                     .onChange(of: draft.text) { _, newValue in
-                                        if draft.phonetic.isEmpty {
-                                            draft.phonetic = WordPhoneticLookup.phonetic(for: newValue)
-                                        }
-                                        if draft.britishPhonetic.isEmpty {
-                                            draft.britishPhonetic = WordPhoneticLookup.britishPhonetic(for: newValue)
-                                        }
-                                        if draft.translation.isEmpty {
-                                            draft.translation = WordTranslationLookup.translation(for: newValue)
-                                        }
-                                        if draft.sentence.isEmpty {
-                                            draft.sentence = WordSentenceLookup.sentence(for: newValue)
-                                        }
+                                        let metadata = MetadataCompletion.mergedMetadata(
+                                            for: newValue,
+                                            americanPhonetic: draft.phonetic,
+                                            britishPhonetic: draft.britishPhonetic,
+                                            translation: draft.translation,
+                                            sentence: draft.sentence
+                                        )
+                                        draft.phonetic = metadata.americanPhonetic
+                                        draft.britishPhonetic = metadata.britishPhonetic
+                                        draft.translation = metadata.translation
+                                        draft.sentence = metadata.sentence
                                     }
 
                                 PhoneticEditorFields(
@@ -84,6 +83,26 @@ struct ScanReviewView: View {
                                 TextField("英文例句", text: $draft.sentence)
                                     .textInputAutocapitalization(.sentences)
                                     .autocorrectionDisabled()
+
+                                MetadataCompletionRow(
+                                    missingLabels: MetadataCompletion.missingLabels(
+                                        americanPhonetic: draft.phonetic,
+                                        britishPhonetic: draft.britishPhonetic,
+                                        translation: draft.translation
+                                    )
+                                ) {
+                                    let metadata = MetadataCompletion.mergedMetadata(
+                                        for: draft.text,
+                                        americanPhonetic: draft.phonetic,
+                                        britishPhonetic: draft.britishPhonetic,
+                                        translation: draft.translation,
+                                        sentence: draft.sentence
+                                    )
+                                    draft.phonetic = metadata.americanPhonetic
+                                    draft.britishPhonetic = metadata.britishPhonetic
+                                    draft.translation = metadata.translation
+                                    draft.sentence = metadata.sentence
+                                }
                             }
 
                             Button {

@@ -488,7 +488,7 @@ struct ArticleTranslatorView: View {
     }
 
     private func speakSource(accent: SpeechAccent) {
-        speechService.speak(cleanSelectedSourceText, rate: 0.45, repetitions: 1, accent: accent)
+        speechService.speak(cleanSelectedSourceText, rate: 0.35, repetitions: 1, accent: accent)
     }
 
     private func translateSource() {

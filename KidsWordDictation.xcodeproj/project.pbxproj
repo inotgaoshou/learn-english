@@ -20,6 +20,7 @@
 		100000000000000000000009 /* WordListDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000109 /* WordListDetailView.swift */; };
 		10000000000000000000000A /* DictationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010A /* DictationView.swift */; };
 		100000000000000000000010 /* ArticleTranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000110 /* ArticleTranslatorView.swift */; };
+		100000000000000000000014 /* MetadataCompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000114 /* MetadataCompletionView.swift */; };
 		100000000000000000000013 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000113 /* InfoPlist.strings */; };
 		10000000000000000000000B /* WordModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010B /* WordModels.swift */; };
 		10000000000000000000000C /* WordTextExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010C /* WordTextExtractor.swift */; };
@@ -42,6 +43,7 @@
 		100000000000000000000109 /* WordListDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListDetailView.swift; sourceTree = "<group>"; };
 		10000000000000000000010A /* DictationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationView.swift; sourceTree = "<group>"; };
 		100000000000000000000110 /* ArticleTranslatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleTranslatorView.swift; sourceTree = "<group>"; };
+		100000000000000000000114 /* MetadataCompletionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataCompletionView.swift; sourceTree = "<group>"; };
 		100000000000000000000112 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		100000000000000000000113 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hans.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		10000000000000000000010B /* WordModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordModels.swift; sourceTree = "<group>"; };
@@ -86,6 +88,7 @@
 				100000000000000000000109 /* WordListDetailView.swift */,
 				10000000000000000000010A /* DictationView.swift */,
 				100000000000000000000110 /* ArticleTranslatorView.swift */,
+				100000000000000000000114 /* MetadataCompletionView.swift */,
 				100000000000000000000112 /* Assets.xcassets */,
 				100000000000000000000113 /* InfoPlist.strings */,
 			);
@@ -195,6 +198,7 @@
 				100000000000000000000009 /* WordListDetailView.swift in Sources */,
 				10000000000000000000000A /* DictationView.swift in Sources */,
 				100000000000000000000010 /* ArticleTranslatorView.swift in Sources */,
+				100000000000000000000014 /* MetadataCompletionView.swift in Sources */,
 				10000000000000000000000B /* WordModels.swift in Sources */,
 				10000000000000000000000C /* WordTextExtractor.swift in Sources */,
 				10000000000000000000000F /* DictationMode.swift in Sources */,
