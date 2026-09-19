@@ -133,10 +133,15 @@ struct WordListDetailView: View {
                                     translation: word.translation,
                                     sentence: word.sentence
                                 )
+                                let changed = metadata.americanPhonetic != word.phonetic
+                                    || metadata.britishPhonetic != word.britishPhonetic
+                                    || metadata.translation != word.translation
+                                    || metadata.sentence != word.sentence
                                 word.phonetic = metadata.americanPhonetic
                                 word.britishPhonetic = metadata.britishPhonetic
                                 word.translation = metadata.translation
                                 word.sentence = metadata.sentence
+                                return changed
                             }
                         }
 
@@ -247,10 +252,15 @@ struct WordListDetailView: View {
                     translation: newTranslation,
                     sentence: newSentence
                 )
+                let changed = metadata.americanPhonetic != newPhonetic
+                    || metadata.britishPhonetic != newBritishPhonetic
+                    || metadata.translation != newTranslation
+                    || metadata.sentence != newSentence
                 newPhonetic = metadata.americanPhonetic
                 newBritishPhonetic = metadata.britishPhonetic
                 newTranslation = metadata.translation
                 newSentence = metadata.sentence
+                return changed
             }
 
             Picker("发音", selection: $newWordAccent) {

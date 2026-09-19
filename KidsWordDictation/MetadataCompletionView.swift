@@ -65,24 +65,40 @@ enum MetadataCompletion {
 
 struct MetadataCompletionRow: View {
     let missingLabels: [String]
-    let onFillMissing: () -> Void
+    let onFillMissing: () -> Bool
+
+    @State private var completionMessage = ""
 
     var body: some View {
         if !missingLabels.isEmpty {
-            HStack(spacing: 8) {
-                Label("待补全：\(missingLabels.joined(separator: "、"))", systemImage: "exclamationmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .lineLimit(2)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Label("待补全：\(missingLabels.joined(separator: "、"))", systemImage: "exclamationmark.circle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(2)
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
 
-                Button("一键补全") {
-                    onFillMissing()
+                    Button {
+                        completionMessage = onFillMissing() ? "已从内置词库补全" : "内置词库暂无，可手动编辑"
+                    } label: {
+                        Label("一键补全", systemImage: "wand.and.stars")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 2)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                 }
-                .font(.caption)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+
+                if !completionMessage.isEmpty {
+                    Text(completionMessage)
+                        .font(.caption2)
+                        .foregroundStyle(completionMessage == "已从内置词库补全" ? .green : .secondary)
+                }
+            }
+            .onChange(of: missingLabels) { _, _ in
+                completionMessage = ""
             }
         }
     }
