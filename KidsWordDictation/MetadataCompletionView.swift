@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 
 enum MetadataCompletion {
     static func missingLabels(americanPhonetic: String, britishPhonetic: String, translation: String) -> [String] {
@@ -64,10 +65,20 @@ enum MetadataCompletion {
 }
 
 struct MetadataCompletionRow: View {
+    let wordText: String
+    let americanPhonetic: String
+    let britishPhonetic: String
+    let translation: String
+    let sentence: String
     let missingLabels: [String]
-    let onFillMissing: () -> Bool
+    let onApplyMetadata: (WordMetadata) -> Bool
 
     @State private var completionMessage = ""
+    @State private var completionMessageIsSuccess = false
+    @State private var isCompleting = false
+    @State private var pendingTranslationText = ""
+    @State private var pendingTranslationMetadata: WordMetadata?
+    @State private var translationConfiguration: TranslationSession.Configuration?
 
     var body: some View {
         if !missingLabels.isEmpty {
@@ -81,25 +92,115 @@ struct MetadataCompletionRow: View {
                     Spacer(minLength: 8)
 
                     Button {
-                        completionMessage = onFillMissing() ? "已从内置词库补全" : "内置词库暂无，可手动编辑"
+                        completeMetadata()
                     } label: {
-                        Label("一键补全", systemImage: "wand.and.stars")
+                        Label(isCompleting ? "补全中" : "一键补全", systemImage: isCompleting ? "hourglass" : "wand.and.stars")
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 2)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .disabled(WordTextNormalizer.normalize(wordText).isEmpty || isCompleting)
                 }
 
                 if !completionMessage.isEmpty {
                     Text(completionMessage)
                         .font(.caption2)
-                        .foregroundStyle(completionMessage == "已从内置词库补全" ? .green : .secondary)
+                        .foregroundStyle(completionMessageIsSuccess ? .green : .secondary)
                 }
             }
             .onChange(of: missingLabels) { _, _ in
                 completionMessage = ""
             }
+            .translationTask(translationConfiguration) { session in
+                await runTranslation(session)
+            }
         }
+    }
+
+    private func completeMetadata() {
+        let offlineMetadata = MetadataCompletion.mergedMetadata(
+            for: wordText,
+            americanPhonetic: americanPhonetic,
+            britishPhonetic: britishPhonetic,
+            translation: translation,
+            sentence: sentence
+        )
+        let didApplyOffline = onApplyMetadata(offlineMetadata)
+        let remainingLabels = MetadataCompletion.missingLabels(
+            americanPhonetic: offlineMetadata.americanPhonetic,
+            britishPhonetic: offlineMetadata.britishPhonetic,
+            translation: offlineMetadata.translation
+        )
+
+        if remainingLabels.isEmpty {
+            setMessage(didApplyOffline ? "已从内置词库补全" : "已经是完整信息", isSuccess: true)
+            return
+        }
+
+        Task {
+            await completeOnline(from: offlineMetadata)
+        }
+    }
+
+    @MainActor
+    private func completeOnline(from baseMetadata: WordMetadata) async {
+        isCompleting = true
+        setMessage("内置词库未完全命中，正在联网补全", isSuccess: false)
+
+        do {
+            let onlineMetadata = try await OnlineWordMetadataService().metadata(for: wordText)
+            let mergedMetadata = WordMetadata(
+                americanPhonetic: baseMetadata.americanPhonetic.isEmpty ? onlineMetadata.americanPhonetic : baseMetadata.americanPhonetic,
+                britishPhonetic: baseMetadata.britishPhonetic.isEmpty ? onlineMetadata.britishPhonetic : baseMetadata.britishPhonetic,
+                translation: baseMetadata.translation,
+                sentence: baseMetadata.sentence.isEmpty ? onlineMetadata.sentence : baseMetadata.sentence
+            )
+
+            if mergedMetadata.translation.isEmpty {
+                pendingTranslationText = wordText
+                pendingTranslationMetadata = mergedMetadata
+                translationConfiguration = TranslationSession.Configuration(
+                    source: Locale.Language(identifier: "en"),
+                    target: Locale.Language(identifier: "zh-Hans")
+                )
+                translationConfiguration?.invalidate()
+            } else {
+                _ = onApplyMetadata(mergedMetadata)
+                setMessage("已联网补全", isSuccess: true)
+                isCompleting = false
+            }
+        } catch {
+            setMessage("联网补全失败：\(error.localizedDescription)。可手动编辑。", isSuccess: false)
+            isCompleting = false
+        }
+    }
+
+    @MainActor
+    private func runTranslation(_ session: TranslationSession) async {
+        guard var metadata = pendingTranslationMetadata else {
+            isCompleting = false
+            return
+        }
+
+        do {
+            try await session.prepareTranslation()
+            let response = try await session.translate(pendingTranslationText)
+            metadata.translation = WordTextNormalizer.displayText(for: response.targetText)
+            _ = onApplyMetadata(metadata)
+            setMessage("已联网补全", isSuccess: true)
+        } catch {
+            _ = onApplyMetadata(metadata)
+            setMessage("音标已补全，中文翻译暂不可用：\(error.localizedDescription)。", isSuccess: false)
+        }
+
+        pendingTranslationText = ""
+        pendingTranslationMetadata = nil
+        isCompleting = false
+    }
+
+    private func setMessage(_ message: String, isSuccess: Bool) {
+        completionMessage = message
+        completionMessageIsSuccess = isSuccess
     }
 }

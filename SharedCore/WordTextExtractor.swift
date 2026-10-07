@@ -45,11 +45,20 @@ public enum WordTextExtractor {
             .replacingMatches(pattern: partOfSpeechPattern, with: " ")
             .lettersAndPhraseSeparatorsOnly()
 
-        candidate = WordTextNormalizer.displayText(for: candidate)
+        candidate = correctedOcrCandidate(WordTextNormalizer.displayText(for: candidate))
         guard isUsefulCandidate(candidate, translation: parts.translation) else {
             return nil
         }
         return (candidate, parts.translation)
+    }
+
+    private static func correctedOcrCandidate(_ candidate: String) -> String {
+        switch WordTextNormalizer.normalize(candidate) {
+        case "list in":
+            return "listen"
+        default:
+            return candidate
+        }
     }
 
     private static func isUsefulCandidate(_ candidate: String, translation: String) -> Bool {

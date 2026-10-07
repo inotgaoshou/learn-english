@@ -182,4 +182,54 @@ final class WordTextExtractorTests: XCTestCase {
             "The car is in the garage."
         ])
     }
+
+    func testScreenshotWordsAddMetadata() {
+        let words = WordTextExtractor.extractWords(from: """
+        message
+        note
+        guess
+        group
+        golden
+        partner
+        grey
+        """)
+
+        XCTAssertEqual(words.map(\.text), ["message", "note", "guess", "group", "golden", "partner", "grey"])
+        XCTAssertTrue(words.allSatisfy(\.hasCompleteRequiredMetadata))
+        XCTAssertEqual(words.map(\.translation), ["消息；信息", "笔记；便条", "猜；猜测", "小组；群体", "金色的；金制的", "搭档；伙伴", "灰色；灰色的"])
+    }
+
+    func testCorrectsListInOcrNoiseToListen() {
+        let words = WordTextExtractor.extractWords(from: "list in")
+
+        XCTAssertEqual(words.map(\.text), ["listen"])
+        XCTAssertEqual(words.first?.translation, "听")
+    }
+
+    func testParsesFreeDictionaryMetadata() throws {
+        let json = """
+        [{
+          "word": "message",
+          "phonetic": "/ˈmɛsɪdʒ/",
+          "phonetics": [
+            {"text": "/ˈmɛsɪdʒ/", "audio": "https://api.dictionaryapi.dev/media/pronunciations/en/message-us.mp3"}
+          ],
+          "meanings": [
+            {
+              "partOfSpeech": "noun",
+              "definitions": [
+                {"definition": "A communication.", "example": "We've just received an urgent message."}
+              ]
+            }
+          ]
+        }]
+        """.data(using: .utf8)!
+
+        let metadata = try FreeDictionaryMetadataParser.metadata(from: json)
+
+        XCTAssertEqual(metadata.americanPhonetic, "/ˈmɛsɪdʒ/")
+        XCTAssertEqual(metadata.britishPhonetic, "/ˈmɛsɪdʒ/")
+        XCTAssertEqual(metadata.sentence, "We've just received an urgent message.")
+        XCTAssertEqual(metadata.translation, "")
+    }
 }

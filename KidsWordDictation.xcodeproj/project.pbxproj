@@ -21,8 +21,10 @@
 		10000000000000000000000A /* DictationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010A /* DictationView.swift */; };
 		100000000000000000000010 /* ArticleTranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000110 /* ArticleTranslatorView.swift */; };
 		100000000000000000000014 /* MetadataCompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000114 /* MetadataCompletionView.swift */; };
+		100000000000000000000015 /* OnlineWordMetadataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000115 /* OnlineWordMetadataService.swift */; };
 		100000000000000000000013 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000113 /* InfoPlist.strings */; };
 		10000000000000000000000B /* WordModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010B /* WordModels.swift */; };
+		100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000116 /* FreeDictionaryMetadataParser.swift */; };
 		10000000000000000000000C /* WordTextExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010C /* WordTextExtractor.swift */; };
 		10000000000000000000000D /* DictationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010D /* DictationSession.swift */; };
 		10000000000000000000000E /* WordListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010E /* WordListStore.swift */; };
@@ -44,10 +46,12 @@
 		10000000000000000000010A /* DictationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationView.swift; sourceTree = "<group>"; };
 		100000000000000000000110 /* ArticleTranslatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleTranslatorView.swift; sourceTree = "<group>"; };
 		100000000000000000000114 /* MetadataCompletionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataCompletionView.swift; sourceTree = "<group>"; };
+		100000000000000000000115 /* OnlineWordMetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineWordMetadataService.swift; sourceTree = "<group>"; };
 		100000000000000000000112 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		100000000000000000000113 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hans.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		10000000000000000000010B /* WordModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordModels.swift; sourceTree = "<group>"; };
 		10000000000000000000010C /* WordTextExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTextExtractor.swift; sourceTree = "<group>"; };
+		100000000000000000000116 /* FreeDictionaryMetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDictionaryMetadataParser.swift; sourceTree = "<group>"; };
 		10000000000000000000010D /* DictationSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationSession.swift; sourceTree = "<group>"; };
 		10000000000000000000010E /* WordListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListStore.swift; sourceTree = "<group>"; };
 		10000000000000000000010F /* DictationMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationMode.swift; sourceTree = "<group>"; };
@@ -89,6 +93,7 @@
 				10000000000000000000010A /* DictationView.swift */,
 				100000000000000000000110 /* ArticleTranslatorView.swift */,
 				100000000000000000000114 /* MetadataCompletionView.swift */,
+				100000000000000000000115 /* OnlineWordMetadataService.swift */,
 				100000000000000000000112 /* Assets.xcassets */,
 				100000000000000000000113 /* InfoPlist.strings */,
 			);
@@ -100,6 +105,7 @@
 			children = (
 				10000000000000000000010B /* WordModels.swift */,
 				10000000000000000000010C /* WordTextExtractor.swift */,
+				100000000000000000000116 /* FreeDictionaryMetadataParser.swift */,
 				10000000000000000000010F /* DictationMode.swift */,
 				10000000000000000000010D /* DictationSession.swift */,
 				10000000000000000000010E /* WordListStore.swift */,
@@ -199,8 +205,10 @@
 				10000000000000000000000A /* DictationView.swift in Sources */,
 				100000000000000000000010 /* ArticleTranslatorView.swift in Sources */,
 				100000000000000000000014 /* MetadataCompletionView.swift in Sources */,
+				100000000000000000000015 /* OnlineWordMetadataService.swift in Sources */,
 				10000000000000000000000B /* WordModels.swift in Sources */,
 				10000000000000000000000C /* WordTextExtractor.swift in Sources */,
+				100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */,
 				10000000000000000000000F /* DictationMode.swift in Sources */,
 				10000000000000000000000D /* DictationSession.swift in Sources */,
 				10000000000000000000000E /* WordListStore.swift in Sources */,
@@ -338,7 +346,7 @@
 				INFOPLIST_KEY_CFBundleLocalizations = (
 					"zh-Hans",
 				);
-				INFOPLIST_KEY_CFBundleDisplayName = "单词听写";
+				INFOPLIST_KEY_CFBundleDisplayName = "小鹿英语";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表图片进行识别。";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -348,7 +356,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.KidsWordDictation;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaolu.english;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -372,7 +380,7 @@
 				INFOPLIST_KEY_CFBundleLocalizations = (
 					"zh-Hans",
 				);
-				INFOPLIST_KEY_CFBundleDisplayName = "单词听写";
+				INFOPLIST_KEY_CFBundleDisplayName = "小鹿英语";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表图片进行识别。";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -382,7 +390,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.KidsWordDictation;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaolu.english;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;

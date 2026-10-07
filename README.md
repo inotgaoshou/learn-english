@@ -1,4 +1,4 @@
-# KidsWordDictation
+# 小鹿英语
 
 iPhone-only SwiftUI app for scanning printed English vocabulary lists and playing randomized dictation for children.
 
@@ -18,7 +18,7 @@ iPhone-only SwiftUI app for scanning printed English vocabulary lists and playin
 
 Open `KidsWordDictation.xcodeproj` in Xcode, select the `KidsWordDictation` scheme, then run on an iPhone with iOS 18 or later. Camera scanning requires a real device.
 
-The bundle identifier is `com.local.KidsWordDictation`. Set your Apple development team in Xcode before installing on a device.
+The bundle identifier is `com.xiaolu.english`, and the display name is `小鹿英语`. Register this identifier with your Apple developer team before distribution; availability in Apple's developer portal has not yet been verified. Set your Apple development team in Xcode before installing on a device.
 
 ## Verify
 

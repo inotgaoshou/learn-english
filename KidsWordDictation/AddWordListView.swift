@@ -72,19 +72,17 @@ struct AddWordListView: View {
                         .autocorrectionDisabled()
 
                     MetadataCompletionRow(
+                        wordText: newWord,
+                        americanPhonetic: newPhonetic,
+                        britishPhonetic: newBritishPhonetic,
+                        translation: newTranslation,
+                        sentence: newSentence,
                         missingLabels: MetadataCompletion.missingLabels(
                             americanPhonetic: newPhonetic,
                             britishPhonetic: newBritishPhonetic,
                             translation: newTranslation
                         )
-                    ) {
-                        let metadata = MetadataCompletion.mergedMetadata(
-                            for: newWord,
-                            americanPhonetic: newPhonetic,
-                            britishPhonetic: newBritishPhonetic,
-                            translation: newTranslation,
-                            sentence: newSentence
-                        )
+                    ) { metadata in
                         let changed = metadata.americanPhonetic != newPhonetic
                             || metadata.britishPhonetic != newBritishPhonetic
                             || metadata.translation != newTranslation
@@ -183,19 +181,17 @@ struct AddWordListView: View {
                                         .autocorrectionDisabled()
 
                                     MetadataCompletionRow(
+                                        wordText: draft.text,
+                                        americanPhonetic: draft.phonetic,
+                                        britishPhonetic: draft.britishPhonetic,
+                                        translation: draft.translation,
+                                        sentence: draft.sentence,
                                         missingLabels: MetadataCompletion.missingLabels(
                                             americanPhonetic: draft.phonetic,
                                             britishPhonetic: draft.britishPhonetic,
                                             translation: draft.translation
                                         )
-                                    ) {
-                                        let metadata = MetadataCompletion.mergedMetadata(
-                                            for: draft.text,
-                                            americanPhonetic: draft.phonetic,
-                                            britishPhonetic: draft.britishPhonetic,
-                                            translation: draft.translation,
-                                            sentence: draft.sentence
-                                        )
+                                    ) { metadata in
                                         let changed = metadata.americanPhonetic != draft.phonetic
                                             || metadata.britishPhonetic != draft.britishPhonetic
                                             || metadata.translation != draft.translation

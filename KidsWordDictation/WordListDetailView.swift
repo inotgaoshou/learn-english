@@ -120,19 +120,17 @@ struct WordListDetailView: View {
                                 .autocorrectionDisabled()
 
                             MetadataCompletionRow(
+                                wordText: word.text,
+                                americanPhonetic: word.phonetic,
+                                britishPhonetic: word.britishPhonetic,
+                                translation: word.translation,
+                                sentence: word.sentence,
                                 missingLabels: MetadataCompletion.missingLabels(
                                     americanPhonetic: word.phonetic,
                                     britishPhonetic: word.britishPhonetic,
                                     translation: word.translation
                                 )
-                            ) {
-                                let metadata = MetadataCompletion.mergedMetadata(
-                                    for: word.text,
-                                    americanPhonetic: word.phonetic,
-                                    britishPhonetic: word.britishPhonetic,
-                                    translation: word.translation,
-                                    sentence: word.sentence
-                                )
+                            ) { metadata in
                                 let changed = metadata.americanPhonetic != word.phonetic
                                     || metadata.britishPhonetic != word.britishPhonetic
                                     || metadata.translation != word.translation
@@ -239,19 +237,17 @@ struct WordListDetailView: View {
                 .autocorrectionDisabled()
 
             MetadataCompletionRow(
+                wordText: newWord,
+                americanPhonetic: newPhonetic,
+                britishPhonetic: newBritishPhonetic,
+                translation: newTranslation,
+                sentence: newSentence,
                 missingLabels: MetadataCompletion.missingLabels(
                     americanPhonetic: newPhonetic,
                     britishPhonetic: newBritishPhonetic,
                     translation: newTranslation
                 )
-            ) {
-                let metadata = MetadataCompletion.mergedMetadata(
-                    for: newWord,
-                    americanPhonetic: newPhonetic,
-                    britishPhonetic: newBritishPhonetic,
-                    translation: newTranslation,
-                    sentence: newSentence
-                )
+            ) { metadata in
                 let changed = metadata.americanPhonetic != newPhonetic
                     || metadata.britishPhonetic != newBritishPhonetic
                     || metadata.translation != newTranslation
