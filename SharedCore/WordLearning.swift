@@ -1,5 +1,27 @@
 import Foundation
 
+public enum LearningStage: String, CaseIterable, Identifiable, Hashable {
+    case learn
+    case read
+    case spell
+
+    public var id: String { rawValue }
+}
+
+public struct LearningProgress: Equatable {
+    private var completedByWord: [UUID: Set<LearningStage>] = [:]
+
+    public init() {}
+
+    public mutating func markComplete(_ stage: LearningStage, for wordID: UUID) {
+        completedByWord[wordID, default: []].insert(stage)
+    }
+
+    public func completedStages(for wordID: UUID) -> Set<LearningStage> {
+        completedByWord[wordID] ?? []
+    }
+}
+
 public struct PronunciationUnit: Identifiable, Equatable, Hashable {
     public let id: String
     public let letters: String
@@ -41,6 +63,23 @@ public struct PronunciationGuide: Equatable, Hashable {
 
     public var spellingChunks: [String] {
         syllables.map(\.text)
+    }
+
+    public var spellingPieces: [String] {
+        let phraseWords = WordTextNormalizer.displayText(for: word)
+            .split(whereSeparator: \Character.isWhitespace)
+            .map(String.init)
+        if phraseWords.count > 1 {
+            return phraseWords
+        }
+
+        let unitPieces = units.map(\.letters)
+        if unitPieces.count > 1,
+           WordTextNormalizer.normalize(unitPieces.joined()) == WordTextNormalizer.normalize(word) {
+            return unitPieces
+        }
+
+        return WordTextNormalizer.displayText(for: word).map(String.init)
     }
 }
 

@@ -36,6 +36,7 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private var synthesizer = AVSpeechSynthesizer()
     private var pendingUtterances: [AVSpeechUtterance] = []
     private var utteranceIndices: [ObjectIdentifier: Int] = [:]
+    private var playbackCompletion: (generation: Int, action: () -> Void)?
     private var playbackGeneration = 0
 
     override init() {
@@ -81,7 +82,12 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         play([makeIPAUtterance(ipa: cleanIPA, rate: rate, accent: accent, delay: 0.2)])
     }
 
-    func speakIPASequence(_ ipaSegments: [String], accent: SpeechAccent = .american, rate: Float = 0.36) {
+    func speakIPASequence(
+        _ ipaSegments: [String],
+        accent: SpeechAccent = .american,
+        rate: Float = 0.36,
+        completion: (() -> Void)? = nil
+    ) {
         let utterances = ipaSegments
             .map(normalizedIPA)
             .filter { !$0.isEmpty }
@@ -89,7 +95,7 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         guard !utterances.isEmpty else {
             return
         }
-        play(utterances, tracksSequence: true)
+        play(utterances, tracksSequence: true, completion: completion)
     }
 
     func pauseOrContinue() {
@@ -106,6 +112,7 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         playbackGeneration += 1
         pendingUtterances.removeAll()
         utteranceIndices.removeAll()
+        playbackCompletion = nil
         synthesizer.stopSpeaking(at: .immediate)
         isSpeaking = false
         isPaused = false
@@ -151,6 +158,11 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             isPaused = false
             activeSequenceIndex = nil
             utteranceIndices.removeAll()
+            let completion = playbackCompletion
+            playbackCompletion = nil
+            if completion?.generation == generation {
+                completion?.action()
+            }
             return
         }
 
@@ -170,7 +182,11 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         activeSequenceIndex = nil
     }
 
-    private func play(_ utterances: [AVSpeechUtterance], tracksSequence: Bool = false) {
+    private func play(
+        _ utterances: [AVSpeechUtterance],
+        tracksSequence: Bool = false,
+        completion: (() -> Void)? = nil
+    ) {
         configureAudioSessionForSpeech()
         playbackGeneration += 1
         let generation = playbackGeneration
@@ -180,6 +196,7 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         utteranceIndices = tracksSequence
             ? Dictionary(uniqueKeysWithValues: utterances.enumerated().map { (ObjectIdentifier($0.element), $0.offset) })
             : [:]
+        playbackCompletion = completion.map { (generation, $0) }
 
         if wasActive {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in

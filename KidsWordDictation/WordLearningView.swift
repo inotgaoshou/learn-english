@@ -1,22 +1,28 @@
 import SwiftUI
+import Translation
 
 struct WordLearningView: View {
-    let words: [WordItem]
+    @Binding var words: [WordItem]
 
     @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var currentIndex: Int
     @State private var stage: LearningStage = .learn
     @State private var puzzle: SpellingPuzzle
     @State private var hasCheckedPuzzle = false
+    @State private var learningProgress = LearningProgress()
+    @State private var pendingTranslationWordID: WordItem.ID?
+    @State private var pendingTranslationSentence = ""
+    @State private var sentenceTranslationMessage = ""
+    @State private var sentenceTranslationConfiguration: TranslationSession.Configuration?
     @StateObject private var speechService = SpeechService()
 
-    init(words: [WordItem], initialWordID: WordItem.ID) {
-        self.words = words
-        let index = words.firstIndex(where: { $0.id == initialWordID }) ?? 0
+    init(words: Binding<[WordItem]>, initialWordID: WordItem.ID) {
+        _words = words
+        let values = words.wrappedValue
+        let index = values.firstIndex(where: { $0.id == initialWordID }) ?? 0
         _currentIndex = State(initialValue: index)
-        let initialWord = words.indices.contains(index) ? words[index] : WordItem(text: "")
-        let chunks = PronunciationGuideProvider.guide(for: initialWord.text)?.spellingChunks ?? []
-        _puzzle = State(initialValue: SpellingPuzzle(answer: initialWord.text, preferredChunks: chunks))
+        let initialWord = values.indices.contains(index) ? values[index] : WordItem(text: "")
+        _puzzle = State(initialValue: Self.makePuzzle(for: initialWord))
     }
 
     var body: some View {
@@ -24,8 +30,8 @@ struct WordLearningView: View {
             header
 
             ScrollView {
-                VStack(spacing: 22) {
-                    stagePicker
+                VStack(spacing: 18) {
+                    stageProgress
 
                     switch stage {
                     case .learn:
@@ -37,9 +43,9 @@ struct WordLearningView: View {
                     }
                 }
                 .frame(maxWidth: 640)
-                .padding(.horizontal, 18)
-                .padding(.top, 16)
-                .padding(.bottom, 110)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 104)
                 .frame(maxWidth: .infinity)
             }
         }
@@ -49,8 +55,12 @@ struct WordLearningView: View {
         .safeAreaInset(edge: .bottom) {
             bottomControls
         }
+        .translationTask(sentenceTranslationConfiguration) { session in
+            await translatePendingSentence(using: session)
+        }
         .onAppear {
             speakCurrent(rate: 0.43)
+            requestSentenceTranslationIfNeeded()
         }
         .onDisappear {
             speechService.stop()
@@ -58,6 +68,7 @@ struct WordLearningView: View {
         .onChange(of: currentIndex) { _, _ in
             resetForCurrentWord()
             speakCurrent(rate: 0.43)
+            requestSentenceTranslationIfNeeded()
         }
     }
 
@@ -79,21 +90,32 @@ struct WordLearningView: View {
     private var accentBinding: Binding<SpeechAccent> {
         Binding(
             get: { accent },
-            set: { accentRawValue = $0.rawValue }
+            set: { newAccent in
+                speechService.stop()
+                accentRawValue = newAccent.rawValue
+            }
         )
     }
 
+    private var selectedPhonetic: String {
+        accent == .american ? currentWord.phonetic : currentWord.britishPhonetic
+    }
+
+    private var completedForCurrentWord: Set<LearningStage> {
+        learningProgress.completedStages(for: currentWord.id)
+    }
+
     private var header: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("第 \(min(currentIndex + 1, words.count)) / \(words.count) 个")
                     .font(.headline.monospacedDigit())
-                Text("点击音节和音素即可点读")
+                Text("完成学、读、拼三个阶段")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
             Picker("发音", selection: accentBinding) {
                 ForEach(SpeechAccent.allCases) { accent in
@@ -101,56 +123,102 @@ struct WordLearningView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 132)
+            .frame(width: 136)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
         .background(Color(.secondarySystemGroupedBackground))
     }
 
-    private var stagePicker: some View {
-        Picker("学习阶段", selection: $stage) {
-            ForEach(LearningStage.allCases) { stage in
-                Label(stage.title, systemImage: stage.systemImage)
-                    .tag(stage)
+    private var stageProgress: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(LearningStage.allCases.enumerated()), id: \.element.id) { index, item in
+                Button {
+                    speechService.stop()
+                    stage = item
+                } label: {
+                    VStack(spacing: 6) {
+                        ZStack {
+                            Circle()
+                                .fill(stageColor(for: item))
+                                .frame(width: 38, height: 38)
+                            Image(systemName: completedForCurrentWord.contains(item) ? "checkmark" : item.systemImage)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(stage == item || completedForCurrentWord.contains(item) ? .white : .secondary)
+                        }
+                        Text(item.title)
+                            .font(.caption.weight(stage == item ? .bold : .medium))
+                            .foregroundStyle(stage == item ? Color.accentColor : .secondary)
+                    }
+                    .frame(width: 58)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(item.title)阶段")
+
+                if index < LearningStage.allCases.count - 1 {
+                    Capsule()
+                        .fill(connectorColor(after: item))
+                        .frame(maxWidth: .infinity, minHeight: 4, maxHeight: 4)
+                        .padding(.horizontal, 4)
+                        .offset(y: -10)
+                }
             }
         }
-        .pickerStyle(.segmented)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var learnView: some View {
-        VStack(spacing: 24) {
-            segmentedWord
-
-            Button {
-                speakCurrent(rate: 0.43)
-            } label: {
-                Label("\(accent.title)发音", systemImage: "speaker.wave.2.fill")
+        VStack(spacing: 20) {
+            HStack(alignment: .center, spacing: 10) {
+                segmentedWord
+                compactSpeakerButton(label: "播放单词") {
+                    speakCurrent(rate: 0.43)
+                    markComplete(.learn)
+                }
             }
-            .buttonStyle(.borderedProminent)
 
-            phoneticBlock
+            phoneticLine
 
             if !currentWord.translation.isEmpty {
                 Text(currentWord.translation)
-                    .font(.title3.weight(.medium))
+                    .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
             }
 
             if !currentWord.sentence.isEmpty {
                 Divider()
-                VStack(spacing: 12) {
-                    Text(currentWord.sentence)
-                        .font(.title3)
-                        .multilineTextAlignment(.center)
-
-                    Button {
-                        speechService.speak(currentWord.sentence, rate: 0.40, repetitions: 1, accent: accent)
-                    } label: {
-                        Label("朗读例句", systemImage: "quote.bubble.fill")
+                VStack(spacing: 9) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(currentWord.sentence)
+                            .font(.title3)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                        compactSpeakerButton(label: "播放例句") {
+                            speechService.speak(currentWord.sentence, rate: 0.38, repetitions: 1, accent: accent)
+                            markComplete(.learn)
+                        }
                     }
-                    .buttonStyle(.bordered)
+
+                    if !currentWord.sentenceTranslation.isEmpty {
+                        Text(currentWord.sentenceTranslation)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Button {
+                            requestSentenceTranslationIfNeeded(force: true)
+                        } label: {
+                            Label(
+                                sentenceTranslationMessage.isEmpty ? "补全例句中文" : sentenceTranslationMessage,
+                                systemImage: "translate"
+                            )
+                            .font(.callout)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
             }
 
@@ -164,12 +232,17 @@ struct WordLearningView: View {
     }
 
     private var readView: some View {
-        VStack(spacing: 22) {
-            segmentedWord
-            phoneticBlock
+        VStack(spacing: 20) {
+            HStack(spacing: 10) {
+                segmentedWord
+                compactSpeakerButton(label: "播放单词") {
+                    speakCurrent(rate: 0.43)
+                }
+            }
+            phoneticLine
 
             if let guide {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     Text("音节")
                         .font(.headline)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 10)], spacing: 10) {
@@ -193,15 +266,15 @@ struct WordLearningView: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     Text("拼读块")
                         .font(.headline)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 66), spacing: 9)], spacing: 9) {
                         ForEach(Array(guide.units.enumerated()), id: \.element.id) { index, unit in
                             Button {
                                 speechService.speakIPA(ipa(for: unit), accent: accent)
                             } label: {
-                                VStack(spacing: 5) {
+                                VStack(spacing: 4) {
                                     Text(unit.letters)
                                         .font(.title2.bold())
                                     Text("/\(ipa(for: unit))/")
@@ -210,7 +283,7 @@ struct WordLearningView: View {
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.65)
                                 }
-                                .frame(maxWidth: .infinity, minHeight: 64)
+                                .frame(maxWidth: .infinity, minHeight: 62)
                             }
                             .buttonStyle(LearningTileButtonStyle(
                                 tint: speechService.activeSequenceIndex == index ? .green : .accentColor,
@@ -230,21 +303,13 @@ struct WordLearningView: View {
                     .buttonStyle(.borderedProminent)
 
                     Button {
-                        speakCurrent(rate: 0.32)
+                        speakCurrent(rate: 0.31)
                     } label: {
                         Label("慢速整词", systemImage: "tortoise.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                 }
-
-                Button {
-                    speakCurrent(rate: 0.45)
-                } label: {
-                    Label("正常整词", systemImage: "speaker.wave.2.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
             } else {
                 ContentUnavailableView(
                     "暂无可靠拼读拆分",
@@ -264,22 +329,21 @@ struct WordLearningView: View {
     }
 
     private var spellingView: some View {
-        VStack(spacing: 22) {
-            Button {
-                speakCurrent(rate: 0.40)
-            } label: {
-                Image(systemName: "speaker.wave.2.circle.fill")
-                    .font(.system(size: 58))
+        VStack(spacing: 18) {
+            HStack(spacing: 10) {
+                compactSpeakerButton(label: "播放当前单词") {
+                    speakCurrent(rate: 0.40)
+                }
+                if !currentWord.translation.isEmpty {
+                    Text(currentWord.translation)
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("播放当前单词")
 
-            if !currentWord.translation.isEmpty {
-                Text(currentWord.translation)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+            phoneticLine
 
             VStack(alignment: .leading, spacing: 10) {
                 Text("你的答案")
@@ -297,14 +361,15 @@ struct WordLearningView: View {
 
             if hasCheckedPuzzle {
                 Label(
-                    puzzle.isCorrect ? "拼写正确" : "顺序不对，再试一次",
+                    puzzle.isCorrect ? "拼写正确" : "顺序不对，请撤回或重置后再试",
                     systemImage: puzzle.isCorrect ? "checkmark.circle.fill" : "arrow.counterclockwise.circle.fill"
                 )
                 .font(.headline)
                 .foregroundStyle(puzzle.isCorrect ? .green : .orange)
+                .frame(maxWidth: .infinity)
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Button {
                     puzzle.undoLastSelection()
                     hasCheckedPuzzle = false
@@ -323,18 +388,7 @@ struct WordLearningView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-
-                Button {
-                    hasCheckedPuzzle = true
-                    if puzzle.isCorrect {
-                        speakCurrent(rate: 0.43)
-                    }
-                } label: {
-                    Label("检查", systemImage: "checkmark.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!puzzle.isComplete)
+                .disabled(puzzle.selectedPieces.isEmpty)
             }
         }
         .learningSurface()
@@ -351,60 +405,65 @@ struct WordLearningView: View {
                     .foregroundStyle(.primary)
             }
         }
-        .font(.system(size: 46, weight: .bold, design: .rounded))
+        .font(.system(size: 44, weight: .bold, design: .rounded))
         .lineLimit(1)
-        .minimumScaleFactor(0.48)
-        .frame(maxWidth: .infinity, minHeight: 62)
+        .minimumScaleFactor(0.42)
+        .frame(maxWidth: .infinity, minHeight: 58)
         .accessibilityLabel(currentWord.text)
     }
 
-    private var phoneticBlock: some View {
-        VStack(spacing: 6) {
-            if !currentWord.phonetic.isEmpty {
-                Text("美  \(currentWord.phonetic)")
-            }
-            if !currentWord.britishPhonetic.isEmpty && currentWord.britishPhonetic != currentWord.phonetic {
-                Text("英  \(currentWord.britishPhonetic)")
-            } else if !currentWord.britishPhonetic.isEmpty {
-                Text("英  \(currentWord.britishPhonetic)")
-            }
+    private var phoneticLine: some View {
+        HStack(spacing: 6) {
+            Text(accent.title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+            Text(selectedPhonetic.isEmpty ? "暂无音标" : selectedPhonetic)
+                .font(.body.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
-        .font(.body.monospaced())
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
     }
 
     private var spellingSlots: some View {
-        Group {
-            if puzzle.selectedPieces.isEmpty {
-                Text("从下方选择拼写块")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 8)], alignment: .leading, spacing: 8) {
-                ForEach(puzzle.selectedPieces) { piece in
-                    Text(piece.text)
-                        .font(.title3.bold())
-                        .frame(minWidth: 50, minHeight: 46)
-                        .padding(.horizontal, 6)
-                        .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
+        let pieceCount = puzzle.availablePieces.count + puzzle.selectedPieces.count
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 52, maximum: 88), spacing: 8)], alignment: .leading, spacing: 8) {
+            ForEach(0..<pieceCount, id: \.self) { index in
+                Group {
+                    if puzzle.selectedPieces.indices.contains(index) {
+                        Text(puzzle.selectedPieces[index].text)
+                            .foregroundStyle(hasCheckedPuzzle && puzzle.isCorrect ? .green : Color.accentColor)
+                    } else {
+                        Text(" ")
+                            .accessibilityHidden(true)
+                    }
                 }
+                .font(.title3.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .padding(.horizontal, 5)
+                .background(slotBackground(index: index), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(slotBorder(index: index), lineWidth: 1.5)
                 }
-                .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
     }
 
     private var spellingChoices: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 9)], alignment: .leading, spacing: 9) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 52, maximum: 88), spacing: 9)], alignment: .leading, spacing: 9) {
             ForEach(puzzle.availablePieces) { piece in
                 Button {
-                    puzzle.select(pieceID: piece.id)
-                    hasCheckedPuzzle = false
+                    selectSpellingPiece(piece.id)
                 } label: {
                     Text(piece.text)
                         .font(.title3.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
                         .frame(maxWidth: .infinity, minHeight: 46)
                 }
                 .buttonStyle(LearningTileButtonStyle(tint: .accentColor))
@@ -427,6 +486,9 @@ struct WordLearningView: View {
 
             Button {
                 speakCurrent(rate: 0.43)
+                if stage == .learn {
+                    markComplete(.learn)
+                }
             } label: {
                 Label("重听", systemImage: "speaker.wave.2.fill")
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -443,9 +505,20 @@ struct WordLearningView: View {
             .disabled(currentIndex >= words.count - 1)
             .accessibilityLabel("下一个单词")
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
         .background(.bar)
+    }
+
+    private func compactSpeakerButton(label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.title3)
+                .frame(width: 40, height: 40)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.circle)
+        .accessibilityLabel(label)
     }
 
     private func ipa(for unit: PronunciationUnit) -> String {
@@ -461,11 +534,31 @@ struct WordLearningView: View {
     }
 
     private func playSegments(_ guide: PronunciationGuide) {
-        speechService.speakIPASequence(guide.units.map(ipa(for:)), accent: accent)
+        let wordID = currentWord.id
+        speechService.speakIPASequence(guide.units.map(ipa(for:)), accent: accent) {
+            learningProgress.markComplete(.read, for: wordID)
+        }
     }
 
     private func speakCurrent(rate: Float) {
         speechService.speak(currentWord.text, rate: rate, repetitions: 1, accent: accent)
+    }
+
+    private func selectSpellingPiece(_ id: SpellingPiece.ID) {
+        guard !puzzle.isComplete else {
+            return
+        }
+        puzzle.select(pieceID: id)
+        guard puzzle.isComplete else {
+            hasCheckedPuzzle = false
+            return
+        }
+
+        hasCheckedPuzzle = true
+        if puzzle.isCorrect {
+            markComplete(.spell)
+            speakCurrent(rate: 0.43)
+        }
     }
 
     private func move(by offset: Int) {
@@ -478,9 +571,91 @@ struct WordLearningView: View {
     }
 
     private func resetForCurrentWord() {
-        let chunks = PronunciationGuideProvider.guide(for: currentWord.text)?.spellingChunks ?? []
-        puzzle = SpellingPuzzle(answer: currentWord.text, preferredChunks: chunks)
+        puzzle = Self.makePuzzle(for: currentWord)
         hasCheckedPuzzle = false
+        sentenceTranslationMessage = ""
+    }
+
+    private static func makePuzzle(for word: WordItem) -> SpellingPuzzle {
+        let pieces = PronunciationGuideProvider.guide(for: word.text)?.spellingPieces ?? []
+        return SpellingPuzzle(answer: word.text, preferredChunks: pieces)
+    }
+
+    private func markComplete(_ item: LearningStage) {
+        learningProgress.markComplete(item, for: currentWord.id)
+    }
+
+    private func stageColor(for item: LearningStage) -> Color {
+        if completedForCurrentWord.contains(item) {
+            return .green
+        }
+        return stage == item ? .accentColor : Color(.tertiarySystemFill)
+    }
+
+    private func connectorColor(after item: LearningStage) -> Color {
+        completedForCurrentWord.contains(item) ? .green.opacity(0.7) : Color(.tertiarySystemFill)
+    }
+
+    private func slotBackground(index: Int) -> Color {
+        if hasCheckedPuzzle && puzzle.isCorrect && puzzle.selectedPieces.indices.contains(index) {
+            return .green.opacity(0.12)
+        }
+        return Color(.tertiarySystemGroupedBackground)
+    }
+
+    private func slotBorder(index: Int) -> Color {
+        if hasCheckedPuzzle && puzzle.isCorrect && puzzle.selectedPieces.indices.contains(index) {
+            return .green.opacity(0.7)
+        }
+        return Color.secondary.opacity(0.25)
+    }
+
+    private func requestSentenceTranslationIfNeeded(force: Bool = false) {
+        guard !currentWord.sentence.isEmpty,
+              currentWord.sentenceTranslation.isEmpty,
+              force || pendingTranslationWordID != currentWord.id else {
+            return
+        }
+
+        pendingTranslationWordID = currentWord.id
+        pendingTranslationSentence = currentWord.sentence
+        sentenceTranslationMessage = "正在翻译例句"
+        sentenceTranslationConfiguration = TranslationSession.Configuration(
+            source: Locale.Language(identifier: "en"),
+            target: Locale.Language(identifier: "zh-Hans")
+        )
+        sentenceTranslationConfiguration?.invalidate()
+    }
+
+    @MainActor
+    private func translatePendingSentence(using session: TranslationSession) async {
+        guard let wordID = pendingTranslationWordID,
+              !pendingTranslationSentence.isEmpty else {
+            return
+        }
+        let sourceSentence = pendingTranslationSentence
+
+        do {
+            try await session.prepareTranslation()
+            let response = try await session.translate(sourceSentence)
+            guard let index = words.firstIndex(where: { $0.id == wordID }),
+                  words[index].sentence == sourceSentence else {
+                return
+            }
+            words[index].sentenceTranslation = WordTextNormalizer.displayText(for: response.targetText)
+            if currentWord.id == wordID {
+                sentenceTranslationMessage = ""
+            }
+        } catch {
+            if currentWord.id == wordID {
+                sentenceTranslationMessage = "例句翻译暂不可用，点击重试"
+            }
+        }
+
+        if pendingTranslationWordID == wordID, pendingTranslationSentence == sourceSentence {
+            pendingTranslationWordID = nil
+            pendingTranslationSentence = ""
+        }
     }
 
     private func syllableColor(_ index: Int) -> Color {
@@ -489,13 +664,7 @@ struct WordLearningView: View {
     }
 }
 
-private enum LearningStage: String, CaseIterable, Identifiable {
-    case learn
-    case read
-    case spell
-
-    var id: String { rawValue }
-
+private extension LearningStage {
     var title: String {
         switch self {
         case .learn: return "学"
@@ -515,7 +684,7 @@ private enum LearningStage: String, CaseIterable, Identifiable {
 
 private extension View {
     func learningSurface() -> some View {
-        padding(20)
+        padding(18)
             .frame(maxWidth: .infinity)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
     }
@@ -528,7 +697,7 @@ private struct LearningTileButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(tint)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 7)
             .background(
                 tint.opacity(isHighlighted ? 0.20 : (configuration.isPressed ? 0.16 : 0.09)),
                 in: RoundedRectangle(cornerRadius: 8)

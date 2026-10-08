@@ -149,7 +149,39 @@ final class WordTextExtractorTests: XCTestCase {
         XCTAssertEqual(word.britishPhonetic, "/tʃeə/")
         XCTAssertEqual(word.translation, "椅子")
         XCTAssertEqual(word.sentence, "Please sit on the chair.")
+        XCTAssertEqual(word.sentenceTranslation, "请坐在椅子上。")
         XCTAssertTrue(word.hasCompleteRequiredMetadata)
+    }
+
+    func testWordItemDecodesOldDataWithoutSentenceTranslation() throws {
+        let json = """
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "text": "zzunknown",
+          "normalizedText": "zzunknown",
+          "phonetic": "",
+          "britishPhonetic": "",
+          "translation": "",
+          "sentence": "A custom sentence."
+        }
+        """.data(using: .utf8)!
+
+        let word = try JSONDecoder().decode(WordItem.self, from: json)
+
+        XCTAssertEqual(word.sentence, "A custom sentence.")
+        XCTAssertEqual(word.sentenceTranslation, "")
+    }
+
+    func testWordItemPersistsSentenceTranslation() throws {
+        let original = WordItem(
+            text: "zzunknown",
+            sentence: "A custom sentence.",
+            sentenceTranslation: "一个自定义例句。"
+        )
+
+        let decoded = try JSONDecoder().decode(WordItem.self, from: JSONEncoder().encode(original))
+
+        XCTAssertEqual(decoded.sentenceTranslation, "一个自定义例句。")
     }
 
     func testKetFamilyWordsAddPhoneticsTranslationsAndSentences() {

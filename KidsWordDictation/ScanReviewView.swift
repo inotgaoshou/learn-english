@@ -29,7 +29,7 @@ struct ScanReviewView: View {
         self._title = State(initialValue: "U1 单词")
         self._selectedCategory = State(initialValue: categories.first ?? "")
         self._customCategory = State(initialValue: "")
-        self._drafts = State(initialValue: review.words.map { WordDraft(text: $0.text, phonetic: $0.phonetic, britishPhonetic: $0.britishPhonetic, translation: $0.translation, sentence: $0.sentence) })
+        self._drafts = State(initialValue: review.words.map { WordDraft(text: $0.text, phonetic: $0.phonetic, britishPhonetic: $0.britishPhonetic, translation: $0.translation, sentence: $0.sentence, sentenceTranslation: $0.sentenceTranslation) })
         self.onSave = onSave
     }
 
@@ -83,12 +83,14 @@ struct ScanReviewView: View {
                                             americanPhonetic: draft.phonetic,
                                             britishPhonetic: draft.britishPhonetic,
                                             translation: draft.translation,
-                                            sentence: draft.sentence
+                                            sentence: draft.sentence,
+                                            sentenceTranslation: draft.sentenceTranslation
                                         )
                                         draft.phonetic = metadata.americanPhonetic
                                         draft.britishPhonetic = metadata.britishPhonetic
                                         draft.translation = metadata.translation
                                         draft.sentence = metadata.sentence
+                                        draft.sentenceTranslation = metadata.sentenceTranslation
                                     }
 
                                 PhoneticEditorFields(
@@ -104,26 +106,33 @@ struct ScanReviewView: View {
                                     .textInputAutocapitalization(.sentences)
                                     .autocorrectionDisabled()
 
+                                TextField("例句中文", text: $draft.sentenceTranslation)
+
                                 MetadataCompletionRow(
                                     wordText: draft.text,
                                     americanPhonetic: draft.phonetic,
                                     britishPhonetic: draft.britishPhonetic,
                                     translation: draft.translation,
                                     sentence: draft.sentence,
+                                    sentenceTranslation: draft.sentenceTranslation,
                                     missingLabels: MetadataCompletion.missingLabels(
                                         americanPhonetic: draft.phonetic,
                                         britishPhonetic: draft.britishPhonetic,
-                                        translation: draft.translation
+                                        translation: draft.translation,
+                                        sentence: draft.sentence,
+                                        sentenceTranslation: draft.sentenceTranslation
                                     )
                                 ) { metadata in
                                     let changed = metadata.americanPhonetic != draft.phonetic
                                         || metadata.britishPhonetic != draft.britishPhonetic
                                         || metadata.translation != draft.translation
                                         || metadata.sentence != draft.sentence
+                                        || metadata.sentenceTranslation != draft.sentenceTranslation
                                     draft.phonetic = metadata.americanPhonetic
                                     draft.britishPhonetic = metadata.britishPhonetic
                                     draft.translation = metadata.translation
                                     draft.sentence = metadata.sentence
+                                    draft.sentenceTranslation = metadata.sentenceTranslation
                                     return changed
                                 }
                             }
@@ -168,7 +177,7 @@ struct ScanReviewView: View {
                     }
 
                     Button {
-                        drafts.append(WordDraft(text: "", phonetic: "", britishPhonetic: "", translation: "", sentence: ""))
+                        drafts.append(WordDraft(text: "", phonetic: "", britishPhonetic: "", translation: "", sentence: "", sentenceTranslation: ""))
                     } label: {
                         Label("添加一行", systemImage: "plus")
                     }
@@ -219,7 +228,7 @@ struct ScanReviewView: View {
     private var wordItems: [WordItem] {
         var seen = Set<String>()
         return drafts
-            .map { WordItem(text: $0.text, phonetic: $0.phonetic, britishPhonetic: $0.britishPhonetic, translation: $0.translation, sentence: $0.sentence) }
+            .map { WordItem(text: $0.text, phonetic: $0.phonetic, britishPhonetic: $0.britishPhonetic, translation: $0.translation, sentence: $0.sentence, sentenceTranslation: $0.sentenceTranslation) }
             .filter { !$0.normalizedText.isEmpty }
             .filter { seen.insert($0.normalizedText).inserted }
     }
@@ -234,7 +243,9 @@ struct ScanReviewView: View {
             !MetadataCompletion.missingLabels(
                 americanPhonetic: draft.phonetic,
                 britishPhonetic: draft.britishPhonetic,
-                translation: draft.translation
+                translation: draft.translation,
+                sentence: draft.sentence,
+                sentenceTranslation: draft.sentenceTranslation
             ).isEmpty
         }
     }
@@ -250,7 +261,8 @@ struct ScanReviewView: View {
                 americanPhonetic: drafts[index].phonetic,
                 britishPhonetic: drafts[index].britishPhonetic,
                 translation: drafts[index].translation,
-                sentence: drafts[index].sentence
+                sentence: drafts[index].sentence,
+                sentenceTranslation: drafts[index].sentenceTranslation
             )
             apply(metadata, toDraftAt: index)
         }
@@ -265,11 +277,21 @@ struct ScanReviewView: View {
         var failedCount = 0
 
         for index in drafts.indices {
-            guard !MetadataCompletion.missingLabels(
-                americanPhonetic: drafts[index].phonetic,
-                britishPhonetic: drafts[index].britishPhonetic,
-                translation: drafts[index].translation
-            ).isEmpty else {
+            let needsDictionary = drafts[index].phonetic.isEmpty
+                || drafts[index].britishPhonetic.isEmpty
+                || drafts[index].translation.isEmpty
+            let needsSentenceTranslation = !drafts[index].sentence.isEmpty
+                && drafts[index].sentenceTranslation.isEmpty
+            guard needsDictionary || needsSentenceTranslation else {
+                continue
+            }
+
+            if !needsDictionary {
+                pendingBatchTranslations.append(BatchTranslationRequest(
+                    id: drafts[index].id,
+                    text: drafts[index].text,
+                    metadata: metadata(forDraftAt: index)
+                ))
                 continue
             }
 
@@ -279,15 +301,24 @@ struct ScanReviewView: View {
                     americanPhonetic: drafts[index].phonetic.isEmpty ? onlineMetadata.americanPhonetic : drafts[index].phonetic,
                     britishPhonetic: drafts[index].britishPhonetic.isEmpty ? onlineMetadata.britishPhonetic : drafts[index].britishPhonetic,
                     translation: drafts[index].translation,
-                    sentence: drafts[index].sentence.isEmpty ? onlineMetadata.sentence : drafts[index].sentence
+                    sentence: drafts[index].sentence.isEmpty ? onlineMetadata.sentence : drafts[index].sentence,
+                    sentenceTranslation: drafts[index].sentenceTranslation
                 )
                 apply(mergedMetadata, toDraftAt: index)
 
-                if drafts[index].translation.isEmpty {
+                if drafts[index].translation.isEmpty
+                    || (!drafts[index].sentence.isEmpty && drafts[index].sentenceTranslation.isEmpty) {
                     pendingBatchTranslations.append(BatchTranslationRequest(id: drafts[index].id, text: drafts[index].text, metadata: mergedMetadata))
                 }
             } catch {
                 failedCount += 1
+                if needsSentenceTranslation {
+                    pendingBatchTranslations.append(BatchTranslationRequest(
+                        id: drafts[index].id,
+                        text: drafts[index].text,
+                        metadata: metadata(forDraftAt: index)
+                    ))
+                }
             }
         }
 
@@ -316,8 +347,14 @@ struct ScanReviewView: View {
                 }
                 var metadata = request.metadata
                 do {
-                    let response = try await session.translate(request.text)
-                    metadata.translation = WordTextNormalizer.displayText(for: response.targetText)
+                    if metadata.translation.isEmpty {
+                        let response = try await session.translate(request.text)
+                        metadata.translation = WordTextNormalizer.displayText(for: response.targetText)
+                    }
+                    if !metadata.sentence.isEmpty && metadata.sentenceTranslation.isEmpty {
+                        let response = try await session.translate(metadata.sentence)
+                        metadata.sentenceTranslation = WordTextNormalizer.displayText(for: response.targetText)
+                    }
                     apply(metadata, toDraftAt: index)
                 } catch {
                     apply(metadata, toDraftAt: index)
@@ -343,6 +380,17 @@ struct ScanReviewView: View {
         drafts[index].britishPhonetic = metadata.britishPhonetic
         drafts[index].translation = metadata.translation
         drafts[index].sentence = metadata.sentence
+        drafts[index].sentenceTranslation = metadata.sentenceTranslation
+    }
+
+    private func metadata(forDraftAt index: Int) -> WordMetadata {
+        WordMetadata(
+            americanPhonetic: drafts[index].phonetic,
+            britishPhonetic: drafts[index].britishPhonetic,
+            translation: drafts[index].translation,
+            sentence: drafts[index].sentence,
+            sentenceTranslation: drafts[index].sentenceTranslation
+        )
     }
 
     private func requestDeleteWord(id: WordDraft.ID) {
@@ -378,6 +426,7 @@ private struct WordDraft: Identifiable {
     var britishPhonetic: String
     var translation: String
     var sentence: String
+    var sentenceTranslation: String
 }
 
 private struct BatchTranslationRequest {

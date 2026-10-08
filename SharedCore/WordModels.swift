@@ -8,8 +8,9 @@ public struct WordItem: Identifiable, Codable, Equatable, Hashable {
     public var britishPhonetic: String
     public var translation: String
     public var sentence: String
+    public var sentenceTranslation: String
 
-    public init(id: UUID = UUID(), text: String, phonetic: String = "", britishPhonetic: String = "", translation: String = "", sentence: String = "") {
+    public init(id: UUID = UUID(), text: String, phonetic: String = "", britishPhonetic: String = "", translation: String = "", sentence: String = "", sentenceTranslation: String = "") {
         self.id = id
         self.text = WordTextNormalizer.displayText(for: text)
         self.normalizedText = WordTextNormalizer.normalize(text)
@@ -22,6 +23,10 @@ public struct WordItem: Identifiable, Codable, Equatable, Hashable {
         self.translation = cleanTranslation.isEmpty ? metadata.translation : cleanTranslation
         let cleanSentence = WordTextNormalizer.displayText(for: sentence)
         self.sentence = cleanSentence.isEmpty ? metadata.sentence : cleanSentence
+        let cleanSentenceTranslation = WordTextNormalizer.displayText(for: sentenceTranslation)
+        self.sentenceTranslation = cleanSentenceTranslation.isEmpty && self.sentence == metadata.sentence
+            ? metadata.sentenceTranslation
+            : cleanSentenceTranslation
     }
 
     enum CodingKeys: String, CodingKey {
@@ -32,6 +37,7 @@ public struct WordItem: Identifiable, Codable, Equatable, Hashable {
         case britishPhonetic
         case translation
         case sentence
+        case sentenceTranslation
     }
 
     public init(from decoder: Decoder) throws {
@@ -48,6 +54,10 @@ public struct WordItem: Identifiable, Codable, Equatable, Hashable {
         translation = decodedTranslation.isEmpty ? metadata.translation : decodedTranslation
         let decodedSentence = try container.decodeIfPresent(String.self, forKey: .sentence) ?? ""
         sentence = decodedSentence.isEmpty ? metadata.sentence : decodedSentence
+        let decodedSentenceTranslation = try container.decodeIfPresent(String.self, forKey: .sentenceTranslation) ?? ""
+        sentenceTranslation = decodedSentenceTranslation.isEmpty && sentence == metadata.sentence
+            ? metadata.sentenceTranslation
+            : decodedSentenceTranslation
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -59,6 +69,7 @@ public struct WordItem: Identifiable, Codable, Equatable, Hashable {
         try container.encode(britishPhonetic, forKey: .britishPhonetic)
         try container.encode(translation, forKey: .translation)
         try container.encode(sentence, forKey: .sentence)
+        try container.encode(sentenceTranslation, forKey: .sentenceTranslation)
     }
 
     public var missingMetadataLabels: [String] {
@@ -100,6 +111,12 @@ public struct WordItem: Identifiable, Codable, Equatable, Hashable {
             sentence = metadata.sentence
             changed = true
         }
+        if WordTextNormalizer.displayText(for: sentenceTranslation).isEmpty,
+           sentence == metadata.sentence,
+           !metadata.sentenceTranslation.isEmpty {
+            sentenceTranslation = metadata.sentenceTranslation
+            changed = true
+        }
 
         return changed
     }
@@ -110,12 +127,14 @@ public struct WordMetadata: Equatable, Hashable {
     public var britishPhonetic: String
     public var translation: String
     public var sentence: String
+    public var sentenceTranslation: String
 
-    public init(americanPhonetic: String = "", britishPhonetic: String = "", translation: String = "", sentence: String = "") {
+    public init(americanPhonetic: String = "", britishPhonetic: String = "", translation: String = "", sentence: String = "", sentenceTranslation: String = "") {
         self.americanPhonetic = WordTextNormalizer.displayText(for: americanPhonetic)
         self.britishPhonetic = WordTextNormalizer.displayText(for: britishPhonetic)
         self.translation = WordTextNormalizer.displayText(for: translation)
         self.sentence = WordTextNormalizer.displayText(for: sentence)
+        self.sentenceTranslation = WordTextNormalizer.displayText(for: sentenceTranslation)
     }
 }
 
@@ -125,7 +144,8 @@ public enum WordMetadataProvider {
             americanPhonetic: WordPhoneticLookup.phonetic(for: text),
             britishPhonetic: WordPhoneticLookup.britishPhonetic(for: text),
             translation: WordTranslationLookup.translation(for: text),
-            sentence: WordSentenceLookup.sentence(for: text)
+            sentence: WordSentenceLookup.sentence(for: text),
+            sentenceTranslation: WordSentenceTranslationLookup.translation(for: text)
         )
     }
 }
@@ -650,6 +670,111 @@ public enum WordSentenceLookup {
     ]
 
     public static func sentence(for text: String) -> String {
+        glossary[WordTextNormalizer.normalize(text)] ?? ""
+    }
+}
+
+public enum WordSentenceTranslationLookup {
+    private static let glossary: [String: String] = [
+        "family tree": "这是我的家谱。",
+        "teenager": "我的姐姐是一名青少年。",
+        "granny": "我的奶奶住在一个小镇上。",
+        "grandpa": "我的爷爷喜欢足球。",
+        "grandparent": "祖父母是家庭的一员。",
+        "grandparents": "我的祖父母住在我们附近。",
+        "nephew": "我的侄子七岁。",
+        "niece": "我的侄女喜欢音乐。",
+        "child": "这个孩子正在读书。",
+        "children": "孩子们正在公园里玩。",
+        "parent": "家长可以帮助完成作业。",
+        "parents": "我和父母住在一起。",
+        "girl": "这个女孩十二岁。",
+        "boy": "这个男孩放学后踢足球。",
+        "young": "我的弟弟年龄很小。",
+        "youngest": "我是家里最小的孩子。",
+        "friend": "我的朋友很擅长弹吉他。",
+        "friends": "我正在邀请我所有的朋友。",
+        "best friend": "我最好的朋友叫斯特夫。",
+        "funny": "她真的很有趣。",
+        "guitar": "他会弹吉他。",
+        "band": "他们是乐队成员。",
+        "party": "我们要去参加学校聚会。",
+        "tonight": "他们今晚将在学校聚会上演出。",
+        "called": "我最好的朋友叫斯特夫。",
+        "live": "我住在伦敦。",
+        "london": "伦敦是一座大城市。",
+        "mum": "我的妈妈是一名音乐家。",
+        "dad": "我的爸爸在大学教书。",
+        "musician": "我的妈妈是一名音乐家。",
+        "village": "他们住在一个小村庄里。",
+        "town": "我住在一个小镇上。",
+        "north": "这个小镇在北方。",
+        "small": "我住在一个小镇上。",
+        "nearly": "我快十三岁了。",
+        "older": "我希望长大后去那里学习。",
+        "birthday": "下周是我的生日。",
+        "week": "我的生日在下周。",
+        "lunch": "到时候我们正在吃午饭。",
+        "football": "我们要去看一场足球比赛。",
+        "match": "我们要去看一场足球比赛。",
+        "study": "我希望去那里学习。",
+        "hope": "我希望去那里学习。",
+        "sport": "她讨厌运动。",
+        "poland": "安雅来自波兰。",
+        "grandma": "我的奶奶非常和蔼。",
+        "grandad": "我的爷爷喜欢音乐。",
+        "husband": "她的丈夫是一名老师。",
+        "wife": "他的妻子是一名医生。",
+        "uncle": "我的叔叔住在我们附近。",
+        "aunt": "我的姑姑养了一只狗。",
+        "cousin": "我的表兄弟十三岁。",
+        "son": "他们的儿子在上学。",
+        "daughter": "他们的女儿喜欢英语。",
+        "sister": "我的姐姐在上大学。",
+        "brother": "我的弟弟比我小。",
+        "grandson": "他们的孙子八岁。",
+        "granddaughter": "他们的孙女喜欢音乐。",
+        "university": "梅尔和苏在上大学。",
+        "pet": "我们的宠物是一只狗。",
+        "musical instrument": "吉他是一种乐器。",
+        "chair": "请坐在椅子上。",
+        "floor": "书包在地板上。",
+        "fridge": "冰箱里有牛奶。",
+        "light": "请把灯打开。",
+        "garage": "汽车在车库里。",
+        "table": "书在桌子上。",
+        "desk": "我在书桌前做作业。",
+        "sofa": "我们坐在客厅的沙发上。",
+        "bed": "孩子正在床上睡觉。",
+        "door": "请关门。",
+        "window": "请打开窗户。",
+        "kitchen": "我妈妈在厨房里。",
+        "bathroom": "浴室在卧室旁边。",
+        "bedroom": "我的卧室很小。",
+        "living room": "沙发在客厅里。",
+        "dining room": "我们在餐厅吃晚饭。",
+        "house": "这是我的房子。",
+        "home": "我放学后回家。",
+        "wall": "墙上有一幅画。",
+        "garden": "花园里有花。",
+        "cupboard": "杯子在橱柜里。",
+        "mirror": "浴室里有一面镜子。",
+        "clock": "墙上有一个钟。",
+        "picture": "这是我的全家福。",
+        "message": "我给朋友发了一条消息。",
+        "note": "请在书上写一条笔记。",
+        "guess": "你能猜出答案吗？",
+        "group": "我们在小组里合作。",
+        "golden": "金色的钥匙在桌子上。",
+        "partner": "和你的搭档交谈。",
+        "grey": "今天的天空是灰色的。",
+        "gray": "今天的天空是灰色的。",
+        "listen": "请听老师讲。",
+        "doctor": "我的妈妈是一名医生。",
+        "potato": "你可以尝尝这个土豆。"
+    ]
+
+    public static func translation(for text: String) -> String {
         glossary[WordTextNormalizer.normalize(text)] ?? ""
     }
 }

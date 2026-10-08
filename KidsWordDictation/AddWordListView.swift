@@ -12,6 +12,7 @@ struct AddWordListView: View {
     @State private var newBritishPhonetic = ""
     @State private var newTranslation = ""
     @State private var newSentence = ""
+    @State private var newSentenceTranslation = ""
     @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var drafts: [ManualWordDraft] = []
     @State private var pendingDeleteIDs: [ManualWordDraft.ID] = []
@@ -52,12 +53,14 @@ struct AddWordListView: View {
                                 americanPhonetic: newPhonetic,
                                 britishPhonetic: newBritishPhonetic,
                                 translation: newTranslation,
-                                sentence: newSentence
+                                sentence: newSentence,
+                                sentenceTranslation: newSentenceTranslation
                             )
                             newPhonetic = metadata.americanPhonetic
                             newBritishPhonetic = metadata.britishPhonetic
                             newTranslation = metadata.translation
                             newSentence = metadata.sentence
+                            newSentenceTranslation = metadata.sentenceTranslation
                         }
 
                     PhoneticEditorFields(
@@ -71,26 +74,33 @@ struct AddWordListView: View {
                         .textInputAutocapitalization(.sentences)
                         .autocorrectionDisabled()
 
+                    TextField("例句中文", text: $newSentenceTranslation)
+
                     MetadataCompletionRow(
                         wordText: newWord,
                         americanPhonetic: newPhonetic,
                         britishPhonetic: newBritishPhonetic,
                         translation: newTranslation,
                         sentence: newSentence,
+                        sentenceTranslation: newSentenceTranslation,
                         missingLabels: MetadataCompletion.missingLabels(
                             americanPhonetic: newPhonetic,
                             britishPhonetic: newBritishPhonetic,
-                            translation: newTranslation
+                            translation: newTranslation,
+                            sentence: newSentence,
+                            sentenceTranslation: newSentenceTranslation
                         )
                     ) { metadata in
                         let changed = metadata.americanPhonetic != newPhonetic
                             || metadata.britishPhonetic != newBritishPhonetic
                             || metadata.translation != newTranslation
                             || metadata.sentence != newSentence
+                            || metadata.sentenceTranslation != newSentenceTranslation
                         newPhonetic = metadata.americanPhonetic
                         newBritishPhonetic = metadata.britishPhonetic
                         newTranslation = metadata.translation
                         newSentence = metadata.sentence
+                        newSentenceTranslation = metadata.sentenceTranslation
                         return changed
                     }
 
@@ -159,12 +169,14 @@ struct AddWordListView: View {
                                                 americanPhonetic: draft.phonetic,
                                                 britishPhonetic: draft.britishPhonetic,
                                                 translation: draft.translation,
-                                                sentence: draft.sentence
+                                                sentence: draft.sentence,
+                                                sentenceTranslation: draft.sentenceTranslation
                                             )
                                             draft.phonetic = metadata.americanPhonetic
                                             draft.britishPhonetic = metadata.britishPhonetic
                                             draft.translation = metadata.translation
                                             draft.sentence = metadata.sentence
+                                            draft.sentenceTranslation = metadata.sentenceTranslation
                                         }
 
                                     PhoneticEditorFields(
@@ -180,26 +192,33 @@ struct AddWordListView: View {
                                         .textInputAutocapitalization(.sentences)
                                         .autocorrectionDisabled()
 
+                                    TextField("例句中文", text: $draft.sentenceTranslation)
+
                                     MetadataCompletionRow(
                                         wordText: draft.text,
                                         americanPhonetic: draft.phonetic,
                                         britishPhonetic: draft.britishPhonetic,
                                         translation: draft.translation,
                                         sentence: draft.sentence,
+                                        sentenceTranslation: draft.sentenceTranslation,
                                         missingLabels: MetadataCompletion.missingLabels(
                                             americanPhonetic: draft.phonetic,
                                             britishPhonetic: draft.britishPhonetic,
-                                            translation: draft.translation
+                                            translation: draft.translation,
+                                            sentence: draft.sentence,
+                                            sentenceTranslation: draft.sentenceTranslation
                                         )
                                     ) { metadata in
                                         let changed = metadata.americanPhonetic != draft.phonetic
                                             || metadata.britishPhonetic != draft.britishPhonetic
                                             || metadata.translation != draft.translation
                                             || metadata.sentence != draft.sentence
+                                            || metadata.sentenceTranslation != draft.sentenceTranslation
                                         draft.phonetic = metadata.americanPhonetic
                                         draft.britishPhonetic = metadata.britishPhonetic
                                         draft.translation = metadata.translation
                                         draft.sentence = metadata.sentence
+                                        draft.sentenceTranslation = metadata.sentenceTranslation
                                         return changed
                                     }
                                 }
@@ -289,7 +308,7 @@ struct AddWordListView: View {
     private var wordItems: [WordItem] {
         var seen = Set<String>()
         return drafts
-            .map { WordItem(text: $0.text, phonetic: $0.phonetic, britishPhonetic: $0.britishPhonetic, translation: $0.translation, sentence: $0.sentence) }
+            .map { WordItem(text: $0.text, phonetic: $0.phonetic, britishPhonetic: $0.britishPhonetic, translation: $0.translation, sentence: $0.sentence, sentenceTranslation: $0.sentenceTranslation) }
             .filter { !$0.normalizedText.isEmpty }
             .filter { seen.insert($0.normalizedText).inserted }
     }
@@ -300,12 +319,13 @@ struct AddWordListView: View {
     }
 
     private func addNewWord() {
-        appendWords([WordItem(text: newWord, phonetic: newPhonetic, britishPhonetic: newBritishPhonetic, translation: newTranslation, sentence: newSentence)])
+        appendWords([WordItem(text: newWord, phonetic: newPhonetic, britishPhonetic: newBritishPhonetic, translation: newTranslation, sentence: newSentence, sentenceTranslation: newSentenceTranslation)])
         newWord = ""
         newPhonetic = ""
         newBritishPhonetic = ""
         newTranslation = ""
         newSentence = ""
+        newSentenceTranslation = ""
     }
 
     private func appendExtractedWords() {
@@ -316,7 +336,7 @@ struct AddWordListView: View {
     private func appendWords(_ items: [WordItem]) {
         var existing = Set(drafts.map { WordTextNormalizer.normalize($0.text) })
         for item in items where !item.normalizedText.isEmpty && existing.insert(item.normalizedText).inserted {
-            drafts.append(ManualWordDraft(text: item.text, phonetic: item.phonetic, britishPhonetic: item.britishPhonetic, translation: item.translation, sentence: item.sentence))
+            drafts.append(ManualWordDraft(text: item.text, phonetic: item.phonetic, britishPhonetic: item.britishPhonetic, translation: item.translation, sentence: item.sentence, sentenceTranslation: item.sentenceTranslation))
         }
     }
 
@@ -353,6 +373,7 @@ private struct ManualWordDraft: Identifiable {
     var britishPhonetic: String
     var translation: String
     var sentence: String
+    var sentenceTranslation: String
 }
 
 struct PhoneticEditorFields: View {

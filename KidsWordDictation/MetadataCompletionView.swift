@@ -2,7 +2,13 @@ import SwiftUI
 import Translation
 
 enum MetadataCompletion {
-    static func missingLabels(americanPhonetic: String, britishPhonetic: String, translation: String) -> [String] {
+    static func missingLabels(
+        americanPhonetic: String,
+        britishPhonetic: String,
+        translation: String,
+        sentence: String = "",
+        sentenceTranslation: String = ""
+    ) -> [String] {
         var labels: [String] = []
         if WordTextNormalizer.displayText(for: americanPhonetic).isEmpty {
             labels.append("美式音标")
@@ -13,6 +19,10 @@ enum MetadataCompletion {
         if WordTextNormalizer.displayText(for: translation).isEmpty {
             labels.append("中文释义")
         }
+        if !WordTextNormalizer.displayText(for: sentence).isEmpty,
+           WordTextNormalizer.displayText(for: sentenceTranslation).isEmpty {
+            labels.append("例句中文")
+        }
         return labels
     }
 
@@ -22,7 +32,8 @@ enum MetadataCompletion {
         americanPhonetic: inout String,
         britishPhonetic: inout String,
         translation: inout String,
-        sentence: inout String
+        sentence: inout String,
+        sentenceTranslation: inout String
     ) -> Bool {
         let metadata = WordMetadataProvider.metadata(for: text)
         var changed = false
@@ -43,6 +54,12 @@ enum MetadataCompletion {
             sentence = metadata.sentence
             changed = true
         }
+        if WordTextNormalizer.displayText(for: sentenceTranslation).isEmpty,
+           sentence == metadata.sentence,
+           !metadata.sentenceTranslation.isEmpty {
+            sentenceTranslation = metadata.sentenceTranslation
+            changed = true
+        }
 
         return changed
     }
@@ -52,14 +69,24 @@ enum MetadataCompletion {
         americanPhonetic: String,
         britishPhonetic: String,
         translation: String,
-        sentence: String
+        sentence: String,
+        sentenceTranslation: String
     ) -> WordMetadata {
         let metadata = WordMetadataProvider.metadata(for: text)
+        let resolvedSentence = WordTextNormalizer.displayText(for: sentence).isEmpty ? metadata.sentence : sentence
+        let resolvedSentenceTranslation: String
+        if WordTextNormalizer.displayText(for: sentenceTranslation).isEmpty,
+           resolvedSentence == metadata.sentence {
+            resolvedSentenceTranslation = metadata.sentenceTranslation
+        } else {
+            resolvedSentenceTranslation = sentenceTranslation
+        }
         return WordMetadata(
             americanPhonetic: WordTextNormalizer.displayText(for: americanPhonetic).isEmpty ? metadata.americanPhonetic : americanPhonetic,
             britishPhonetic: WordTextNormalizer.displayText(for: britishPhonetic).isEmpty ? metadata.britishPhonetic : britishPhonetic,
             translation: WordTextNormalizer.displayText(for: translation).isEmpty ? metadata.translation : translation,
-            sentence: WordTextNormalizer.displayText(for: sentence).isEmpty ? metadata.sentence : sentence
+            sentence: resolvedSentence,
+            sentenceTranslation: resolvedSentenceTranslation
         )
     }
 }
@@ -70,13 +97,13 @@ struct MetadataCompletionRow: View {
     let britishPhonetic: String
     let translation: String
     let sentence: String
+    let sentenceTranslation: String
     let missingLabels: [String]
     let onApplyMetadata: (WordMetadata) -> Bool
 
     @State private var completionMessage = ""
     @State private var completionMessageIsSuccess = false
     @State private var isCompleting = false
-    @State private var pendingTranslationText = ""
     @State private var pendingTranslationMetadata: WordMetadata?
     @State private var translationConfiguration: TranslationSession.Configuration?
 
@@ -124,13 +151,16 @@ struct MetadataCompletionRow: View {
             americanPhonetic: americanPhonetic,
             britishPhonetic: britishPhonetic,
             translation: translation,
-            sentence: sentence
+            sentence: sentence,
+            sentenceTranslation: sentenceTranslation
         )
         let didApplyOffline = onApplyMetadata(offlineMetadata)
         let remainingLabels = MetadataCompletion.missingLabels(
             americanPhonetic: offlineMetadata.americanPhonetic,
             britishPhonetic: offlineMetadata.britishPhonetic,
-            translation: offlineMetadata.translation
+            translation: offlineMetadata.translation,
+            sentence: offlineMetadata.sentence,
+            sentenceTranslation: offlineMetadata.sentenceTranslation
         )
 
         if remainingLabels.isEmpty {
@@ -138,8 +168,12 @@ struct MetadataCompletionRow: View {
             return
         }
 
-        Task {
-            await completeOnline(from: offlineMetadata)
+        if remainingLabels == ["例句中文"] {
+            beginTranslations(for: offlineMetadata)
+        } else {
+            Task {
+                await completeOnline(from: offlineMetadata)
+            }
         }
     }
 
@@ -154,25 +188,20 @@ struct MetadataCompletionRow: View {
                 americanPhonetic: baseMetadata.americanPhonetic.isEmpty ? onlineMetadata.americanPhonetic : baseMetadata.americanPhonetic,
                 britishPhonetic: baseMetadata.britishPhonetic.isEmpty ? onlineMetadata.britishPhonetic : baseMetadata.britishPhonetic,
                 translation: baseMetadata.translation,
-                sentence: baseMetadata.sentence.isEmpty ? onlineMetadata.sentence : baseMetadata.sentence
+                sentence: baseMetadata.sentence.isEmpty ? onlineMetadata.sentence : baseMetadata.sentence,
+                sentenceTranslation: baseMetadata.sentenceTranslation
             )
-
-            if mergedMetadata.translation.isEmpty {
-                pendingTranslationText = wordText
-                pendingTranslationMetadata = mergedMetadata
-                translationConfiguration = TranslationSession.Configuration(
-                    source: Locale.Language(identifier: "en"),
-                    target: Locale.Language(identifier: "zh-Hans")
-                )
-                translationConfiguration?.invalidate()
+            beginTranslations(for: mergedMetadata)
+        } catch {
+            let canTranslateChinese = baseMetadata.translation.isEmpty
+                || (!baseMetadata.sentence.isEmpty && baseMetadata.sentenceTranslation.isEmpty)
+            if canTranslateChinese {
+                setMessage("在线词典未命中，正在尝试系统翻译", isSuccess: false)
+                beginTranslations(for: baseMetadata)
             } else {
-                _ = onApplyMetadata(mergedMetadata)
-                setMessage("已联网补全", isSuccess: true)
+                setMessage("联网补全失败：\(error.localizedDescription)。可手动编辑。", isSuccess: false)
                 isCompleting = false
             }
-        } catch {
-            setMessage("联网补全失败：\(error.localizedDescription)。可手动编辑。", isSuccess: false)
-            isCompleting = false
         }
     }
 
@@ -185,18 +214,54 @@ struct MetadataCompletionRow: View {
 
         do {
             try await session.prepareTranslation()
-            let response = try await session.translate(pendingTranslationText)
-            metadata.translation = WordTextNormalizer.displayText(for: response.targetText)
+            if metadata.translation.isEmpty {
+                let response = try await session.translate(wordText)
+                metadata.translation = WordTextNormalizer.displayText(for: response.targetText)
+            }
+            if !metadata.sentence.isEmpty && metadata.sentenceTranslation.isEmpty {
+                let response = try await session.translate(metadata.sentence)
+                metadata.sentenceTranslation = WordTextNormalizer.displayText(for: response.targetText)
+            }
             _ = onApplyMetadata(metadata)
-            setMessage("已联网补全", isSuccess: true)
+            let remainingLabels = MetadataCompletion.missingLabels(
+                americanPhonetic: metadata.americanPhonetic,
+                britishPhonetic: metadata.britishPhonetic,
+                translation: metadata.translation,
+                sentence: metadata.sentence,
+                sentenceTranslation: metadata.sentenceTranslation
+            )
+            if remainingLabels.isEmpty {
+                setMessage("已联网补全", isSuccess: true)
+            } else {
+                setMessage("中文已补全，仍待补：\(remainingLabels.joined(separator: "、"))", isSuccess: false)
+            }
         } catch {
             _ = onApplyMetadata(metadata)
             setMessage("音标已补全，中文翻译暂不可用：\(error.localizedDescription)。", isSuccess: false)
         }
 
-        pendingTranslationText = ""
         pendingTranslationMetadata = nil
         isCompleting = false
+    }
+
+    @MainActor
+    private func beginTranslations(for metadata: WordMetadata) {
+        let needsWordTranslation = metadata.translation.isEmpty
+        let needsSentenceTranslation = !metadata.sentence.isEmpty && metadata.sentenceTranslation.isEmpty
+        guard needsWordTranslation || needsSentenceTranslation else {
+            _ = onApplyMetadata(metadata)
+            setMessage("已联网补全", isSuccess: true)
+            isCompleting = false
+            return
+        }
+
+        isCompleting = true
+        pendingTranslationMetadata = metadata
+        translationConfiguration = TranslationSession.Configuration(
+            source: Locale.Language(identifier: "en"),
+            target: Locale.Language(identifier: "zh-Hans")
+        )
+        translationConfiguration?.invalidate()
     }
 
     private func setMessage(_ message: String, isSuccess: Bool) {
