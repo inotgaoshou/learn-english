@@ -136,7 +136,7 @@ struct MetadataCompletionRow: View {
                         .foregroundStyle(completionMessageIsSuccess ? .green : .secondary)
                 }
             }
-            .onChange(of: missingLabels) { _, _ in
+            .onChange(of: wordText) { _, _ in
                 completionMessage = ""
             }
             .translationTask(translationConfiguration) { session in
@@ -168,40 +168,13 @@ struct MetadataCompletionRow: View {
             return
         }
 
-        if remainingLabels == ["例句中文"] {
+        let needsSystemTranslation = offlineMetadata.translation.isEmpty
+            || (!offlineMetadata.sentence.isEmpty && offlineMetadata.sentenceTranslation.isEmpty)
+        if needsSystemTranslation {
+            setMessage("内置词库未完全命中，正在尝试系统翻译", isSuccess: false)
             beginTranslations(for: offlineMetadata)
         } else {
-            Task {
-                await completeOnline(from: offlineMetadata)
-            }
-        }
-    }
-
-    @MainActor
-    private func completeOnline(from baseMetadata: WordMetadata) async {
-        isCompleting = true
-        setMessage("内置词库未完全命中，正在联网补全", isSuccess: false)
-
-        do {
-            let onlineMetadata = try await OnlineWordMetadataService().metadata(for: wordText)
-            let mergedMetadata = WordMetadata(
-                americanPhonetic: baseMetadata.americanPhonetic.isEmpty ? onlineMetadata.americanPhonetic : baseMetadata.americanPhonetic,
-                britishPhonetic: baseMetadata.britishPhonetic.isEmpty ? onlineMetadata.britishPhonetic : baseMetadata.britishPhonetic,
-                translation: baseMetadata.translation,
-                sentence: baseMetadata.sentence.isEmpty ? onlineMetadata.sentence : baseMetadata.sentence,
-                sentenceTranslation: baseMetadata.sentenceTranslation
-            )
-            beginTranslations(for: mergedMetadata)
-        } catch {
-            let canTranslateChinese = baseMetadata.translation.isEmpty
-                || (!baseMetadata.sentence.isEmpty && baseMetadata.sentenceTranslation.isEmpty)
-            if canTranslateChinese {
-                setMessage("在线词典未命中，正在尝试系统翻译", isSuccess: false)
-                beginTranslations(for: baseMetadata)
-            } else {
-                setMessage("联网补全失败：\(error.localizedDescription)。可手动编辑。", isSuccess: false)
-                isCompleting = false
-            }
+            setMessage("内置词库暂无对应音标，请手动编辑", isSuccess: false)
         }
     }
 
@@ -231,13 +204,13 @@ struct MetadataCompletionRow: View {
                 sentenceTranslation: metadata.sentenceTranslation
             )
             if remainingLabels.isEmpty {
-                setMessage("已联网补全", isSuccess: true)
+                setMessage("已用内置词库和系统翻译补全", isSuccess: true)
             } else {
                 setMessage("中文已补全，仍待补：\(remainingLabels.joined(separator: "、"))", isSuccess: false)
             }
         } catch {
             _ = onApplyMetadata(metadata)
-            setMessage("音标已补全，中文翻译暂不可用：\(error.localizedDescription)。", isSuccess: false)
+            setMessage("系统翻译暂不可用：\(error.localizedDescription)。可手动编辑。", isSuccess: false)
         }
 
         pendingTranslationMetadata = nil
@@ -250,7 +223,7 @@ struct MetadataCompletionRow: View {
         let needsSentenceTranslation = !metadata.sentence.isEmpty && metadata.sentenceTranslation.isEmpty
         guard needsWordTranslation || needsSentenceTranslation else {
             _ = onApplyMetadata(metadata)
-            setMessage("已联网补全", isSuccess: true)
+            setMessage("已从内置词库补全", isSuccess: true)
             isCompleting = false
             return
         }

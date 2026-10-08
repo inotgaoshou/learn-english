@@ -283,30 +283,4 @@ final class WordTextExtractorTests: XCTestCase {
         XCTAssertTrue(list.words.allSatisfy { !$0.sentence.isEmpty })
     }
 
-    func testParsesFreeDictionaryMetadata() throws {
-        let json = """
-        [{
-          "word": "message",
-          "phonetic": "/ˈmɛsɪdʒ/",
-          "phonetics": [
-            {"text": "/ˈmɛsɪdʒ/", "audio": "https://api.dictionaryapi.dev/media/pronunciations/en/message-us.mp3"}
-          ],
-          "meanings": [
-            {
-              "partOfSpeech": "noun",
-              "definitions": [
-                {"definition": "A communication.", "example": "We've just received an urgent message."}
-              ]
-            }
-          ]
-        }]
-        """.data(using: .utf8)!
-
-        let metadata = try FreeDictionaryMetadataParser.metadata(from: json)
-
-        XCTAssertEqual(metadata.americanPhonetic, "/ˈmɛsɪdʒ/")
-        XCTAssertEqual(metadata.britishPhonetic, "/ˈmɛsɪdʒ/")
-        XCTAssertEqual(metadata.sentence, "We've just received an urgent message.")
-        XCTAssertEqual(metadata.translation, "")
-    }
 }

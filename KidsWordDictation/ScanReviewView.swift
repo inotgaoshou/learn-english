@@ -60,7 +60,7 @@ struct ScanReviewView: View {
                         Button {
                             batchCompleteMissingMetadata()
                         } label: {
-                            Label(isBatchCompleting ? "批量补全中" : "批量联网补全缺失项", systemImage: isBatchCompleting ? "hourglass" : "icloud.and.arrow.down")
+                            Label(isBatchCompleting ? "批量补全中" : "批量补全缺失项", systemImage: isBatchCompleting ? "hourglass" : "wand.and.stars")
                         }
                         .disabled(isBatchCompleting)
 
@@ -252,11 +252,11 @@ struct ScanReviewView: View {
 
     private func batchCompleteMissingMetadata() {
         isBatchCompleting = true
-        batchCompletionMessage = "正在补全缺失项"
+        batchCompletionMessage = "正在应用内置词库"
         pendingBatchTranslations = []
 
         for index in drafts.indices {
-            let metadata = MetadataCompletion.mergedMetadata(
+            let resolvedMetadata = MetadataCompletion.mergedMetadata(
                 for: drafts[index].text,
                 americanPhonetic: drafts[index].phonetic,
                 britishPhonetic: drafts[index].britishPhonetic,
@@ -264,69 +264,22 @@ struct ScanReviewView: View {
                 sentence: drafts[index].sentence,
                 sentenceTranslation: drafts[index].sentenceTranslation
             )
-            apply(metadata, toDraftAt: index)
-        }
-
-        Task {
-            await batchCompleteOnline()
-        }
-    }
-
-    @MainActor
-    private func batchCompleteOnline() async {
-        var failedCount = 0
-
-        for index in drafts.indices {
-            let needsDictionary = drafts[index].phonetic.isEmpty
-                || drafts[index].britishPhonetic.isEmpty
-                || drafts[index].translation.isEmpty
-            let needsSentenceTranslation = !drafts[index].sentence.isEmpty
-                && drafts[index].sentenceTranslation.isEmpty
-            guard needsDictionary || needsSentenceTranslation else {
-                continue
-            }
-
-            if !needsDictionary {
+            apply(resolvedMetadata, toDraftAt: index)
+            if drafts[index].translation.isEmpty
+                || (!drafts[index].sentence.isEmpty && drafts[index].sentenceTranslation.isEmpty) {
                 pendingBatchTranslations.append(BatchTranslationRequest(
                     id: drafts[index].id,
                     text: drafts[index].text,
                     metadata: metadata(forDraftAt: index)
                 ))
-                continue
-            }
-
-            do {
-                let onlineMetadata = try await OnlineWordMetadataService().metadata(for: drafts[index].text)
-                let mergedMetadata = WordMetadata(
-                    americanPhonetic: drafts[index].phonetic.isEmpty ? onlineMetadata.americanPhonetic : drafts[index].phonetic,
-                    britishPhonetic: drafts[index].britishPhonetic.isEmpty ? onlineMetadata.britishPhonetic : drafts[index].britishPhonetic,
-                    translation: drafts[index].translation,
-                    sentence: drafts[index].sentence.isEmpty ? onlineMetadata.sentence : drafts[index].sentence,
-                    sentenceTranslation: drafts[index].sentenceTranslation
-                )
-                apply(mergedMetadata, toDraftAt: index)
-
-                if drafts[index].translation.isEmpty
-                    || (!drafts[index].sentence.isEmpty && drafts[index].sentenceTranslation.isEmpty) {
-                    pendingBatchTranslations.append(BatchTranslationRequest(id: drafts[index].id, text: drafts[index].text, metadata: mergedMetadata))
-                }
-            } catch {
-                failedCount += 1
-                if needsSentenceTranslation {
-                    pendingBatchTranslations.append(BatchTranslationRequest(
-                        id: drafts[index].id,
-                        text: drafts[index].text,
-                        metadata: metadata(forDraftAt: index)
-                    ))
-                }
             }
         }
 
         if pendingBatchTranslations.isEmpty {
-            batchCompletionMessage = failedCount == 0 ? "已完成批量补全" : "部分词在线词典未查到，可手动编辑"
+            batchCompletionMessage = completionSummary(prefix: "已应用内置词库")
             isBatchCompleting = false
         } else {
-            batchCompletionMessage = "音标已补全，正在补中文释义"
+            batchCompletionMessage = "内置资料已应用，正在使用系统翻译补充中文"
             batchTranslationConfiguration = TranslationSession.Configuration(
                 source: Locale.Language(identifier: "en"),
                 target: Locale.Language(identifier: "zh-Hans")
@@ -361,18 +314,32 @@ struct ScanReviewView: View {
                     failedCount += 1
                 }
             }
-            batchCompletionMessage = failedCount == 0 ? "已完成批量补全" : "部分中文翻译暂不可用，可手动编辑"
+            let prefix = failedCount == 0 ? "已完成批量补全" : "部分中文翻译暂不可用，可手动编辑"
+            batchCompletionMessage = completionSummary(prefix: prefix)
         } catch {
             for request in pendingBatchTranslations {
                 if let index = drafts.firstIndex(where: { $0.id == request.id }) {
                     apply(request.metadata, toDraftAt: index)
                 }
             }
-            batchCompletionMessage = "音标已补全，系统翻译暂不可用：\(error.localizedDescription)。"
+            batchCompletionMessage = completionSummary(
+                prefix: "系统翻译暂不可用：\(error.localizedDescription)。可手动编辑"
+            )
         }
 
         pendingBatchTranslations = []
         isBatchCompleting = false
+    }
+
+    private func completionSummary(prefix: String) -> String {
+        let missingPhoneticCount = drafts.filter {
+            WordTextNormalizer.displayText(for: $0.phonetic).isEmpty
+                || WordTextNormalizer.displayText(for: $0.britishPhonetic).isEmpty
+        }.count
+        guard missingPhoneticCount > 0 else {
+            return prefix
+        }
+        return "\(prefix)；\(missingPhoneticCount) 个词的音标不在内置词库中，请手动编辑"
     }
 
     private func apply(_ metadata: WordMetadata, toDraftAt index: Int) {

@@ -2,6 +2,53 @@ import XCTest
 @testable import KidsWordDictationCore
 
 final class WordLearningTests: XCTestCase {
+    func testLearningStagesUseFiveStepOrder() {
+        XCTAssertEqual(LearningStage.allCases, [.learn, .read, .select, .spell, .write])
+    }
+
+    func testOfflineGuidesHaveCuratedIllustrations() throws {
+        for word in PronunciationGuideProvider.supportedWords {
+            let illustration = try XCTUnwrap(
+                WordIllustrationProvider.illustration(for: word),
+                "Missing illustration for \(word)"
+            )
+            XCTAssertFalse(illustration.glyph.isEmpty, word)
+            XCTAssertFalse(illustration.accessibilityLabel.isEmpty, word)
+        }
+    }
+
+    func testIllustrationLookupNormalizesCaseAndRejectsUnknownWords() {
+        XCTAssertEqual(WordIllustrationProvider.illustration(for: "  APPLE  ")?.glyph, "🍎")
+        XCTAssertNil(WordIllustrationProvider.illustration(for: "codexophone"))
+    }
+
+    func testLegacyRemoteImageFieldIsIgnoredWhenDecodingWordItem() throws {
+        let id = UUID()
+        let json = #"""
+        {
+          "id": "\#(id.uuidString)",
+          "text": "doctor",
+          "normalizedText": "doctor",
+          "phonetic": "/ˈdɑːktɚ/",
+          "britishPhonetic": "/ˈdɒktə/",
+          "translation": "医生；博士",
+          "sentence": "The doctor helps sick people.",
+          "sentenceTranslation": "医生帮助生病的人。",
+          "image": {
+            "id": "legacy",
+            "thumbnailURL": "https://example.invalid/legacy.jpg"
+          }
+        }
+        """#
+
+        let decoded = try JSONDecoder().decode(WordItem.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(decoded)
+
+        XCTAssertEqual(decoded.id, id)
+        XCTAssertEqual(decoded.text, "doctor")
+        XCTAssertFalse(String(decoding: encoded, as: UTF8.self).contains("\"image\""))
+    }
+
     func testKnownWordsReturnCuratedPronunciationGuides() {
         let doctor = PronunciationGuideProvider.guide(for: "Doctor")
         XCTAssertEqual(doctor?.syllables.map(\.text), ["doc", "tor"])
@@ -15,6 +62,69 @@ final class WordLearningTests: XCTestCase {
         XCTAssertEqual(potato?.spellingPieces, ["p", "o", "t", "a", "t", "o"])
         XCTAssertEqual(potato?.units.map(\.letters), ["p", "o", "t", "a", "t", "o"])
         XCTAssertEqual(potato?.units.map(\.americanIPA), ["p", "ə", "t", "eɪ", "t", "oʊ"])
+    }
+
+    func testAllOfflineGuidesHaveCompleteSyllableAndPhonicsCoverage() throws {
+        XCTAssertEqual(PronunciationGuideProvider.supportedWords.count, 116)
+
+        for word in PronunciationGuideProvider.supportedWords {
+            let guide = try XCTUnwrap(PronunciationGuideProvider.guide(for: word), word)
+            let syllableText = WordTextNormalizer.normalize(guide.syllables.map(\.text).joined())
+            let expectedWord = WordTextNormalizer.normalize(word).replacingOccurrences(of: " ", with: "")
+            XCTAssertEqual(syllableText, expectedWord, word)
+            XCTAssertTrue(guide.hasReliablePhonics, word)
+
+            let ids = guide.units.map(\.id)
+            XCTAssertEqual(Set(ids).count, ids.count, word)
+
+            for syllable in guide.syllables {
+                XCTAssertEqual(
+                    WordTextNormalizer.normalize(syllable.units.map(\.letters).joined()),
+                    WordTextNormalizer.normalize(syllable.text),
+                    "\(word): \(syllable.text)"
+                )
+                XCTAssertTrue(
+                    syllable.units.allSatisfy { $0.isSilent || (!$0.americanIPA.isEmpty && !$0.britishIPA.isEmpty) },
+                    "\(word): \(syllable.text)"
+                )
+            }
+        }
+    }
+
+    func testScienceUsesSyllablesAndDetailedPhonicsFromReferenceFlow() throws {
+        let science = try XCTUnwrap(PronunciationGuideProvider.guide(for: "science"))
+
+        XCTAssertEqual(science.syllables.map(\.text), ["sci", "ence"])
+        XCTAssertEqual(science.units.map(\.letters), ["sc", "i", "e", "n", "ce"])
+        XCTAssertEqual(science.units.map(\.americanIPA), ["s", "aɪ", "ə", "n", "s"])
+        XCTAssertEqual(WordItem(text: "science").translation, "科学")
+    }
+
+    func testSilentAndGroupedUnitsAreExplicitlyMarked() throws {
+        let wife = try XCTUnwrap(PronunciationGuideProvider.guide(for: "wife"))
+        XCTAssertEqual(wife.units.last?.letters, "e")
+        XCTAssertEqual(wife.units.last?.kind, .silent)
+
+        let aunt = try XCTUnwrap(PronunciationGuideProvider.guide(for: "aunt"))
+        XCTAssertEqual(aunt.units.first?.letters, "au")
+        XCTAssertEqual(aunt.units.first?.kind, .letterGroup)
+    }
+
+    func testSelectionExerciseUsesUniqueUnitOptionsAndChecksAnswer() throws {
+        let words = ["science", "robot", "jump", "rope", "science"].map { WordItem(text: $0) }
+        var exercise = SelectionExercise(answer: words[0], candidates: words)
+
+        XCTAssertEqual(exercise.options.count, 4)
+        XCTAssertEqual(Set(exercise.options.map(\.normalizedText)).count, 4)
+        XCTAssertTrue(exercise.options.contains { $0.normalizedText == "science" })
+
+        let wrong = try XCTUnwrap(exercise.options.first { $0.normalizedText != "science" })
+        exercise.select(wrong.id)
+        XCTAssertFalse(exercise.isCorrect)
+
+        let correct = try XCTUnwrap(exercise.options.first { $0.normalizedText == "science" })
+        exercise.select(correct.id)
+        XCTAssertTrue(exercise.isCorrect)
     }
 
     func testUnknownWordDoesNotReceiveGuessedPronunciationGuide() {
@@ -82,6 +192,13 @@ final class WordLearningTests: XCTestCase {
 
         XCTAssertEqual(puzzle.composedAnswer, "musical instrument")
         XCTAssertTrue(puzzle.isCorrect)
+    }
+
+    func testMultiWordGuideKeepsSpacesInColoredSyllableDisplay() throws {
+        let guide = try XCTUnwrap(PronunciationGuideProvider.guide(for: "musical instrument"))
+
+        XCTAssertEqual(guide.displaySyllableTexts, ["mu", "si", "cal", " in", "stru", "ment"])
+        XCTAssertEqual(guide.displaySyllableTexts.joined(), "musical instrument")
     }
 
     func testLearningProgressKeepsStagesIndependentPerWord() {

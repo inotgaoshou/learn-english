@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		10000000000000000000001A /* PrivacyPolicy.txt in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000011A /* PrivacyPolicy.txt */; };
+		10000000000000000000001B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000011B /* PrivacyInfo.xcprivacy */; };
 		100000000000000000000012 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000112 /* Assets.xcassets */; };
 		100000000000000000000001 /* KidsWordDictationApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000101 /* KidsWordDictationApp.swift */; };
 		100000000000000000000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000102 /* AppState.swift */; };
@@ -21,10 +23,8 @@
 		10000000000000000000000A /* DictationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010A /* DictationView.swift */; };
 		100000000000000000000010 /* ArticleTranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000110 /* ArticleTranslatorView.swift */; };
 		100000000000000000000014 /* MetadataCompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000114 /* MetadataCompletionView.swift */; };
-		100000000000000000000015 /* OnlineWordMetadataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000115 /* OnlineWordMetadataService.swift */; };
 		100000000000000000000013 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000113 /* InfoPlist.strings */; };
 		10000000000000000000000B /* WordModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010B /* WordModels.swift */; };
-		100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000116 /* FreeDictionaryMetadataParser.swift */; };
 		100000000000000000000017 /* WordLearning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000117 /* WordLearning.swift */; };
 		100000000000000000000018 /* WordLearningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000118 /* WordLearningView.swift */; };
 		100000000000000000000019 /* DefaultWordLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000119 /* DefaultWordLists.swift */; };
@@ -35,6 +35,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		10000000000000000000011A /* PrivacyPolicy.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = PrivacyPolicy.txt; sourceTree = "<group>"; };
+		10000000000000000000011B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		100000000000000000000020 /* KidsWordDictation.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KidsWordDictation.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		100000000000000000000101 /* KidsWordDictationApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsWordDictationApp.swift; sourceTree = "<group>"; };
 		100000000000000000000102 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -49,12 +51,10 @@
 		10000000000000000000010A /* DictationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationView.swift; sourceTree = "<group>"; };
 		100000000000000000000110 /* ArticleTranslatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleTranslatorView.swift; sourceTree = "<group>"; };
 		100000000000000000000114 /* MetadataCompletionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataCompletionView.swift; sourceTree = "<group>"; };
-		100000000000000000000115 /* OnlineWordMetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineWordMetadataService.swift; sourceTree = "<group>"; };
 		100000000000000000000112 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		100000000000000000000113 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hans.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		10000000000000000000010B /* WordModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordModels.swift; sourceTree = "<group>"; };
 		10000000000000000000010C /* WordTextExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTextExtractor.swift; sourceTree = "<group>"; };
-		100000000000000000000116 /* FreeDictionaryMetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDictionaryMetadataParser.swift; sourceTree = "<group>"; };
 		100000000000000000000117 /* WordLearning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLearning.swift; sourceTree = "<group>"; };
 		100000000000000000000118 /* WordLearningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLearningView.swift; sourceTree = "<group>"; };
 		100000000000000000000119 /* DefaultWordLists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultWordLists.swift; sourceTree = "<group>"; };
@@ -99,10 +99,11 @@
 				10000000000000000000010A /* DictationView.swift */,
 				100000000000000000000110 /* ArticleTranslatorView.swift */,
 				100000000000000000000114 /* MetadataCompletionView.swift */,
-				100000000000000000000115 /* OnlineWordMetadataService.swift */,
 				100000000000000000000118 /* WordLearningView.swift */,
 				100000000000000000000112 /* Assets.xcassets */,
 				100000000000000000000113 /* InfoPlist.strings */,
+				10000000000000000000011A /* PrivacyPolicy.txt */,
+				10000000000000000000011B /* PrivacyInfo.xcprivacy */,
 			);
 			path = KidsWordDictation;
 			sourceTree = "<group>";
@@ -113,7 +114,6 @@
 				10000000000000000000010B /* WordModels.swift */,
 				100000000000000000000119 /* DefaultWordLists.swift */,
 				10000000000000000000010C /* WordTextExtractor.swift */,
-				100000000000000000000116 /* FreeDictionaryMetadataParser.swift */,
 				100000000000000000000117 /* WordLearning.swift */,
 				10000000000000000000010F /* DictationMode.swift */,
 				10000000000000000000010D /* DictationSession.swift */,
@@ -191,6 +191,8 @@
 			files = (
 				100000000000000000000012 /* Assets.xcassets in Resources */,
 				100000000000000000000013 /* InfoPlist.strings in Resources */,
+				10000000000000000000001A /* PrivacyPolicy.txt in Resources */,
+				10000000000000000000001B /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -214,11 +216,9 @@
 				10000000000000000000000A /* DictationView.swift in Sources */,
 				100000000000000000000010 /* ArticleTranslatorView.swift in Sources */,
 				100000000000000000000014 /* MetadataCompletionView.swift in Sources */,
-				100000000000000000000015 /* OnlineWordMetadataService.swift in Sources */,
 				10000000000000000000000B /* WordModels.swift in Sources */,
 				100000000000000000000019 /* DefaultWordLists.swift in Sources */,
 				10000000000000000000000C /* WordTextExtractor.swift in Sources */,
-				100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */,
 				100000000000000000000017 /* WordLearning.swift in Sources */,
 				100000000000000000000018 /* WordLearningView.swift in Sources */,
 				10000000000000000000000F /* DictationMode.swift in Sources */,
@@ -350,7 +350,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = US68YTUSG4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -358,9 +358,10 @@
 				INFOPLIST_KEY_CFBundleLocalizations = (
 					"zh-Hans",
 				);
-				INFOPLIST_KEY_CFBundleDisplayName = "小鹿英语";
-				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表图片进行识别。";
+				INFOPLIST_KEY_CFBundleDisplayName = "小鹿学习";
+				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表、课本文章和练习内容。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表或文章图片进行识别。";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -384,7 +385,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = US68YTUSG4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -392,9 +393,10 @@
 				INFOPLIST_KEY_CFBundleLocalizations = (
 					"zh-Hans",
 				);
-				INFOPLIST_KEY_CFBundleDisplayName = "小鹿英语";
-				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表图片进行识别。";
+				INFOPLIST_KEY_CFBundleDisplayName = "小鹿学习";
+				INFOPLIST_KEY_NSCameraUsageDescription = "用于扫描纸质英语单词表、课本文章和练习内容。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入单词表或文章图片进行识别。";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
 				LD_RUNPATH_SEARCH_PATHS = (

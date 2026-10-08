@@ -86,16 +86,28 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         _ ipaSegments: [String],
         accent: SpeechAccent = .american,
         rate: Float = 0.36,
+        followedBy finalText: String? = nil,
         completion: (() -> Void)? = nil
     ) {
-        let utterances = ipaSegments
-            .map(normalizedIPA)
-            .filter { !$0.isEmpty }
-            .map { makeIPAUtterance(ipa: $0, rate: rate, accent: accent, delay: 0.28) }
+        let segmentUtterances = ipaSegments.enumerated().compactMap { index, ipa -> (AVSpeechUtterance, Int)? in
+            let cleanIPA = normalizedIPA(ipa)
+            guard !cleanIPA.isEmpty else {
+                return nil
+            }
+            return (makeIPAUtterance(ipa: cleanIPA, rate: rate, accent: accent, delay: 0.28), index)
+        }
+        var utterances = segmentUtterances.map(\.0)
+        let cleanFinalText = WordTextNormalizer.displayText(for: finalText ?? "")
+        if !cleanFinalText.isEmpty {
+            utterances.append(makeUtterance(text: cleanFinalText, rate: 0.40, accent: accent, delay: 0.2))
+        }
         guard !utterances.isEmpty else {
             return
         }
-        play(utterances, tracksSequence: true, completion: completion)
+        let sequenceIndices = Dictionary(uniqueKeysWithValues: segmentUtterances.map {
+            (ObjectIdentifier($0.0), $0.1)
+        })
+        play(utterances, sequenceIndices: sequenceIndices, completion: completion)
     }
 
     func pauseOrContinue() {
@@ -184,7 +196,7 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
 
     private func play(
         _ utterances: [AVSpeechUtterance],
-        tracksSequence: Bool = false,
+        sequenceIndices: [ObjectIdentifier: Int] = [:],
         completion: (() -> Void)? = nil
     ) {
         configureAudioSessionForSpeech()
@@ -193,9 +205,7 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         let wasActive = synthesizer.isSpeaking || synthesizer.isPaused
         prepareSynthesizerForReplacement()
         pendingUtterances = utterances
-        utteranceIndices = tracksSequence
-            ? Dictionary(uniqueKeysWithValues: utterances.enumerated().map { (ObjectIdentifier($0.element), $0.offset) })
-            : [:]
+        utteranceIndices = sequenceIndices
         playbackCompletion = completion.map { (generation, $0) }
 
         if wasActive {

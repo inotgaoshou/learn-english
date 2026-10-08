@@ -322,6 +322,11 @@ public enum WordTranslationLookup {
         "orange": "橙子",
         "cat": "猫",
         "dog": "狗",
+        "science": "科学",
+        "robot": "机器人",
+        "jump": "跳；跳跃",
+        "rope": "绳；绳索",
+        "hard-working": "勤奋的；努力工作的",
         "doctor": "医生；博士",
         "potato": "土豆；马铃薯"
     ]
@@ -442,6 +447,11 @@ public enum WordPhoneticLookup {
         "orange": "/ˈɔrɪndʒ/",
         "cat": "/kæt/",
         "dog": "/dɔːɡ/",
+        "science": "/ˈsaɪəns/",
+        "robot": "/ˈroʊbɑːt/",
+        "jump": "/dʒʌmp/",
+        "rope": "/roʊp/",
+        "hard-working": "/ˌhɑːrdˈwɝːkɪŋ/",
         "doctor": "/ˈdɑːktɚ/",
         "potato": "/pəˈteɪtoʊ/"
     ]
@@ -556,6 +566,11 @@ public enum WordPhoneticLookup {
         "orange": "/ˈɒrɪndʒ/",
         "cat": "/kæt/",
         "dog": "/dɒɡ/",
+        "science": "/ˈsaɪəns/",
+        "robot": "/ˈrəʊbɒt/",
+        "jump": "/dʒʌmp/",
+        "rope": "/rəʊp/",
+        "hard-working": "/ˌhɑːdˈwɜːkɪŋ/",
         "doctor": "/ˈdɒktə/",
         "potato": "/pəˈteɪtəʊ/"
     ]
@@ -665,6 +680,11 @@ public enum WordSentenceLookup {
         "grey": "The sky is grey today.",
         "gray": "The sky is gray today.",
         "listen": "Please listen to the teacher.",
+        "science": "Science helps us understand the world.",
+        "robot": "The robot can move its arms.",
+        "jump": "Jump over the rope.",
+        "rope": "The children are jumping rope.",
+        "hard-working": "She is a hard-working student.",
         "doctor": "My mother is a doctor.",
         "potato": "You can taste the potato."
     ]
@@ -770,6 +790,11 @@ public enum WordSentenceTranslationLookup {
         "grey": "今天的天空是灰色的。",
         "gray": "今天的天空是灰色的。",
         "listen": "请听老师讲。",
+        "science": "科学帮助我们了解世界。",
+        "robot": "这个机器人会移动手臂。",
+        "jump": "跳过这根绳子。",
+        "rope": "孩子们正在跳绳。",
+        "hard-working": "她是一名勤奋的学生。",
         "doctor": "我的妈妈是一名医生。",
         "potato": "你可以尝尝这个土豆。"
     ]

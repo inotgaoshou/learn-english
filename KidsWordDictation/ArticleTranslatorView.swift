@@ -73,12 +73,21 @@ struct ArticleTranslatorView: View {
                 }
 
                 Section("英文原文") {
-                    if !cleanSourceText.isEmpty {
+                    if !cleanSourceText.isEmpty || isEditingSourceText {
                         sourceTextToolbar
+                    }
+
+                    if cleanSourceText.isEmpty && !isEditingSourceText {
+                        Button {
+                            isEditingSourceText = true
+                        } label: {
+                            Label("输入或粘贴英文", systemImage: "square.and.pencil")
+                        }
                     }
 
                     if isEditingSourceText {
                         TextEditor(text: $sourceText)
+                            .accessibilityLabel("英文原文输入")
                             .frame(minHeight: 180)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()

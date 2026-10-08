@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
+    @State private var showingPrivacyPolicy = false
 
     var body: some View {
         NavigationStack {
@@ -27,8 +28,50 @@ struct ContentView: View {
                         )
                     }
                 }
+
+                Section {
+                    Button {
+                        showingPrivacyPolicy = true
+                    } label: {
+                        Label("隐私说明", systemImage: "hand.raised")
+                    }
+                }
             }
-            .navigationTitle("英语学习")
+            .navigationTitle("小鹿学习")
+            .sheet(isPresented: $showingPrivacyPolicy) {
+                PrivacyPolicyView()
+            }
+        }
+    }
+}
+
+private struct PrivacyPolicyView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private var policyText: String {
+        guard let url = Bundle.main.url(forResource: "PrivacyPolicy", withExtension: "txt"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else {
+            return "隐私说明暂时无法读取，请重新打开应用。"
+        }
+        return text
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(policyText)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .textSelection(.enabled)
+            }
+            .navigationTitle("隐私说明")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
         }
     }
 }
