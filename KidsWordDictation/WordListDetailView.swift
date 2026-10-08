@@ -8,10 +8,22 @@ struct WordListDetailView: View {
     @State private var newBritishPhonetic = ""
     @State private var newTranslation = ""
     @State private var newSentence = ""
-    @State private var newWordAccent: SpeechAccent = .american
+    @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var isAddWordExpanded = false
     @State private var pendingDeleteIDs: [WordItem.ID] = []
+    @State private var editingWord: WordEditDraft?
     @StateObject private var speechService = SpeechService()
+
+    private var speechAccent: SpeechAccent {
+        SpeechAccent(rawValue: accentRawValue) ?? .american
+    }
+
+    private var accentBinding: Binding<SpeechAccent> {
+        Binding(
+            get: { speechAccent },
+            set: { accentRawValue = $0.rawValue }
+        )
+    }
 
     var body: some View {
         List {
@@ -21,7 +33,7 @@ struct WordListDetailView: View {
             }
 
             Section("播放与听写") {
-                Picker("发音", selection: $newWordAccent) {
+                Picker("发音", selection: accentBinding) {
                     ForEach(SpeechAccent.allCases) { accent in
                         Text(accent.title).tag(accent)
                     }
@@ -31,7 +43,7 @@ struct WordListDetailView: View {
                 Button {
                     speakWordListInOrder()
                 } label: {
-                    Label("\(newWordAccent.title)顺序朗读单词", systemImage: "play.circle")
+                    Label("\(speechAccent.title)顺序朗读单词", systemImage: "play.circle")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -82,100 +94,53 @@ struct WordListDetailView: View {
             }
 
             Section("单词列表") {
-                ForEach($wordList.words) { $word in
+                ForEach(wordList.words) { word in
                     HStack(spacing: 12) {
-                        VStack(spacing: 8) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                TextField("word", text: $word.text)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .onChange(of: word.text) { _, newValue in
-                                        word.normalizedText = WordTextNormalizer.normalize(newValue)
-                                        let metadata = MetadataCompletion.mergedMetadata(
-                                            for: newValue,
-                                            americanPhonetic: word.phonetic,
-                                            britishPhonetic: word.britishPhonetic,
-                                            translation: word.translation,
-                                            sentence: word.sentence
-                                        )
-                                        word.phonetic = metadata.americanPhonetic
-                                        word.britishPhonetic = metadata.britishPhonetic
-                                        word.translation = metadata.translation
-                                        word.sentence = metadata.sentence
-                                    }
-
-                            }
-
-                            PhoneticEditorFields(
-                                americanPhonetic: $word.phonetic,
-                                britishPhonetic: $word.britishPhonetic,
-                                americanPlaceholder: "美式音标",
-                                britishPlaceholder: "英式音标"
-                            )
-
-                            TextField("中文释义", text: $word.translation)
-
-                            TextField("英文例句", text: $word.sentence)
-                                .textInputAutocapitalization(.sentences)
-                                .autocorrectionDisabled()
-
-                            MetadataCompletionRow(
-                                wordText: word.text,
-                                americanPhonetic: word.phonetic,
-                                britishPhonetic: word.britishPhonetic,
-                                translation: word.translation,
-                                sentence: word.sentence,
-                                missingLabels: MetadataCompletion.missingLabels(
-                                    americanPhonetic: word.phonetic,
-                                    britishPhonetic: word.britishPhonetic,
-                                    translation: word.translation
-                                )
-                            ) { metadata in
-                                let changed = metadata.americanPhonetic != word.phonetic
-                                    || metadata.britishPhonetic != word.britishPhonetic
-                                    || metadata.translation != word.translation
-                                    || metadata.sentence != word.sentence
-                                word.phonetic = metadata.americanPhonetic
-                                word.britishPhonetic = metadata.britishPhonetic
-                                word.translation = metadata.translation
-                                word.sentence = metadata.sentence
-                                return changed
-                            }
+                        NavigationLink {
+                            WordLearningView(words: wordList.words, initialWordID: word.id)
+                        } label: {
+                            WordSummaryRow(word: word, accent: speechAccent)
                         }
 
                         Button {
-                            speechService.speak(word.text, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                            speechService.speak(word.text, rate: 0.45, repetitions: 1, accent: speechAccent)
                         } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "speaker.wave.2.circle")
-                                Text("发音")
-                                    .font(.caption2)
-                            }
+                            Image(systemName: "speaker.wave.2.circle.fill")
+                                .font(.title2)
                         }
                         .buttonStyle(.borderless)
                         .disabled(word.normalizedText.isEmpty)
-                        .accessibilityLabel("播放 \(word.text) 的\(newWordAccent.title)发音")
+                        .accessibilityLabel("播放 \(word.text) 的\(speechAccent.title)发音")
 
-                        Button {
-                            speechService.speak(word.sentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
-                        } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "quote.bubble")
-                                Text("例句")
-                                    .font(.caption2)
+                        Menu {
+                            Button {
+                                editingWord = WordEditDraft(word: word)
+                            } label: {
+                                Label("编辑", systemImage: "pencil")
                             }
+                            Button(role: .destructive) {
+                                requestDeleteWord(id: word.id)
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.title3)
                         }
                         .buttonStyle(.borderless)
-                        .disabled(WordTextNormalizer.normalize(word.sentence).isEmpty)
-                        .accessibilityLabel("播放 \(word.text) 的例句")
-
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             requestDeleteWord(id: word.id)
                         } label: {
-                            Image(systemName: "trash")
+                            Label("删除", systemImage: "trash")
                         }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("删除 \(word.text)")
+                        Button {
+                            editingWord = WordEditDraft(word: word)
+                        } label: {
+                            Label("编辑", systemImage: "pencil")
+                        }
+                        .tint(.blue)
                     }
                 }
                 .onDelete { offsets in
@@ -184,6 +149,11 @@ struct WordListDetailView: View {
             }
         }
         .navigationTitle(wordList.title.isEmpty ? "单元" : wordList.title)
+        .sheet(item: $editingWord) { draft in
+            WordEditorSheet(draft: draft) { updatedWord in
+                updateWord(updatedWord)
+            }
+        }
         .alert("确认删除单词？", isPresented: Binding(
             get: { !pendingDeleteIDs.isEmpty },
             set: { isPresented in
@@ -259,7 +229,7 @@ struct WordListDetailView: View {
                 return changed
             }
 
-            Picker("发音", selection: $newWordAccent) {
+            Picker("发音", selection: accentBinding) {
                 ForEach(SpeechAccent.allCases) { accent in
                     Text(accent.title).tag(accent)
                 }
@@ -268,16 +238,16 @@ struct WordListDetailView: View {
 
             HStack(spacing: 12) {
                 Button {
-                    speechService.speak(newWord, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                    speechService.speak(newWord, rate: 0.45, repetitions: 1, accent: speechAccent)
                 } label: {
-                    Label("\(newWordAccent.title)发音", systemImage: "speaker.wave.2")
+                    Label("\(speechAccent.title)发音", systemImage: "speaker.wave.2")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .disabled(WordTextNormalizer.normalize(newWord).isEmpty)
 
                 Button {
-                    speechService.speak(newSentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                    speechService.speak(newSentence, rate: 0.45, repetitions: 1, accent: speechAccent)
                 } label: {
                     Label("播放例句", systemImage: "quote.bubble")
                         .frame(maxWidth: .infinity)
@@ -317,7 +287,19 @@ struct WordListDetailView: View {
     }
 
     private func speakWordListInOrder() {
-        speechService.speakSequence(wordList.words.map(\.text), rate: 0.45, accent: newWordAccent)
+        speechService.speakSequence(wordList.words.map(\.text), rate: 0.45, accent: speechAccent)
+    }
+
+    private func updateWord(_ updatedWord: WordItem) -> Bool {
+        guard let index = wordList.words.firstIndex(where: { $0.id == updatedWord.id }) else {
+            return false
+        }
+        guard !updatedWord.normalizedText.isEmpty,
+              !wordList.words.contains(where: { $0.id != updatedWord.id && $0.normalizedText == updatedWord.normalizedText }) else {
+            return false
+        }
+        wordList.words[index] = updatedWord
+        return true
     }
 
     private func requestDeleteWord(id: WordItem.ID) {
@@ -332,5 +314,179 @@ struct WordListDetailView: View {
         let ids = Set(pendingDeleteIDs)
         wordList.words.removeAll { ids.contains($0.id) }
         pendingDeleteIDs = []
+    }
+}
+
+private struct WordSummaryRow: View {
+    let word: WordItem
+    let accent: SpeechAccent
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(word.text)
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            let phonetic = accent == .american ? word.phonetic : word.britishPhonetic
+            if !phonetic.isEmpty {
+                Text("\(accent.title) \(phonetic)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+
+            if !word.translation.isEmpty {
+                Text(word.translation)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            if !word.missingMetadataLabels.isEmpty {
+                Text("待补全：\(word.missingMetadataLabels.joined(separator: "、"))")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 5)
+    }
+}
+
+private struct WordEditDraft: Identifiable {
+    let id: WordItem.ID
+    var text: String
+    var americanPhonetic: String
+    var britishPhonetic: String
+    var translation: String
+    var sentence: String
+
+    init(word: WordItem) {
+        id = word.id
+        text = word.text
+        americanPhonetic = word.phonetic
+        britishPhonetic = word.britishPhonetic
+        translation = word.translation
+        sentence = word.sentence
+    }
+
+    var wordItem: WordItem {
+        WordItem(
+            id: id,
+            text: text,
+            phonetic: americanPhonetic,
+            britishPhonetic: britishPhonetic,
+            translation: translation,
+            sentence: sentence
+        )
+    }
+}
+
+private struct WordEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
+    @State private var draft: WordEditDraft
+    @State private var saveError: String?
+    @StateObject private var speechService = SpeechService()
+
+    let onSave: (WordItem) -> Bool
+
+    init(draft: WordEditDraft, onSave: @escaping (WordItem) -> Bool) {
+        _draft = State(initialValue: draft)
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("单词") {
+                    TextField("英文单词或短语", text: $draft.text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    PhoneticEditorFields(
+                        americanPhonetic: $draft.americanPhonetic,
+                        britishPhonetic: $draft.britishPhonetic
+                    )
+
+                    TextField("中文释义", text: $draft.translation)
+                    TextField("英文例句", text: $draft.sentence)
+                        .textInputAutocapitalization(.sentences)
+                        .autocorrectionDisabled()
+                }
+
+                Section("补全与试听") {
+                    MetadataCompletionRow(
+                        wordText: draft.text,
+                        americanPhonetic: draft.americanPhonetic,
+                        britishPhonetic: draft.britishPhonetic,
+                        translation: draft.translation,
+                        sentence: draft.sentence,
+                        missingLabels: MetadataCompletion.missingLabels(
+                            americanPhonetic: draft.americanPhonetic,
+                            britishPhonetic: draft.britishPhonetic,
+                            translation: draft.translation
+                        )
+                    ) { metadata in
+                        let changed = metadata.americanPhonetic != draft.americanPhonetic
+                            || metadata.britishPhonetic != draft.britishPhonetic
+                            || metadata.translation != draft.translation
+                            || metadata.sentence != draft.sentence
+                        draft.americanPhonetic = metadata.americanPhonetic
+                        draft.britishPhonetic = metadata.britishPhonetic
+                        draft.translation = metadata.translation
+                        draft.sentence = metadata.sentence
+                        return changed
+                    }
+
+                    Button {
+                        speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: accent)
+                    } label: {
+                        Label("播放\(accent.title)发音", systemImage: "speaker.wave.2")
+                    }
+                    .disabled(WordTextNormalizer.normalize(draft.text).isEmpty)
+
+                    Button {
+                        speechService.speak(draft.sentence, rate: 0.42, repetitions: 1, accent: accent)
+                    } label: {
+                        Label("播放例句", systemImage: "quote.bubble")
+                    }
+                    .disabled(WordTextNormalizer.normalize(draft.sentence).isEmpty)
+                }
+            }
+            .navigationTitle("编辑单词")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        if onSave(draft.wordItem) {
+                            dismiss()
+                        } else {
+                            saveError = "单词不能为空，也不能与当前单元中的其他单词重复。"
+                        }
+                    }
+                    .disabled(WordTextNormalizer.normalize(draft.text).isEmpty)
+                }
+            }
+        }
+        .onDisappear {
+            speechService.stop()
+        }
+        .alert("无法保存", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
+        }
+    }
+
+    private var accent: SpeechAccent {
+        SpeechAccent(rawValue: accentRawValue) ?? .american
     }
 }

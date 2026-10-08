@@ -19,7 +19,7 @@ struct ArticleTranslatorView: View {
     @State private var imageRegionSelection: ImportedImageSelection?
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var translationConfiguration: TranslationSession.Configuration?
-    @State private var sourceAccent: SpeechAccent = .american
+    @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var captureMode: ArticleCaptureMode = .fullPage
     @State private var isEditingSourceText = false
     @StateObject private var speechService = SpeechService()
@@ -216,6 +216,17 @@ struct ArticleTranslatorView: View {
         !articleSegments.isEmpty && selectedSegmentIndices == Set(articleSegments.indices)
     }
 
+    private var sourceAccent: SpeechAccent {
+        SpeechAccent(rawValue: accentRawValue) ?? .american
+    }
+
+    private var accentBinding: Binding<SpeechAccent> {
+        Binding(
+            get: { sourceAccent },
+            set: { accentRawValue = $0.rawValue }
+        )
+    }
+
     private var sourceTextToolbar: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
@@ -354,7 +365,7 @@ struct ArticleTranslatorView: View {
 
     private var articleActionControls: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker("发音", selection: $sourceAccent) {
+            Picker("发音", selection: accentBinding) {
                 ForEach(SpeechAccent.allCases) { accent in
                     Text(accent.title).tag(accent)
                 }

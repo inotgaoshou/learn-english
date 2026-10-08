@@ -301,7 +301,9 @@ public enum WordTranslationLookup {
         "banana": "香蕉",
         "orange": "橙子",
         "cat": "猫",
-        "dog": "狗"
+        "dog": "狗",
+        "doctor": "医生；博士",
+        "potato": "土豆；马铃薯"
     ]
 
     public static func translation(for text: String) -> String {
@@ -419,7 +421,9 @@ public enum WordPhoneticLookup {
         "banana": "/bəˈnænə/",
         "orange": "/ˈɔrɪndʒ/",
         "cat": "/kæt/",
-        "dog": "/dɔːɡ/"
+        "dog": "/dɔːɡ/",
+        "doctor": "/ˈdɑːktɚ/",
+        "potato": "/pəˈteɪtoʊ/"
     ]
 
     private static let britishGlossary: [String: String] = [
@@ -531,7 +535,9 @@ public enum WordPhoneticLookup {
         "banana": "/bəˈnɑːnə/",
         "orange": "/ˈɒrɪndʒ/",
         "cat": "/kæt/",
-        "dog": "/dɒɡ/"
+        "dog": "/dɒɡ/",
+        "doctor": "/ˈdɒktə/",
+        "potato": "/pəˈteɪtəʊ/"
     ]
 
     public static func phonetic(for text: String) -> String {
@@ -636,7 +642,9 @@ public enum WordSentenceLookup {
         "partner": "Talk to your partner.",
         "grey": "The sky is grey today.",
         "gray": "The sky is gray today.",
-        "listen": "Please listen to the teacher."
+        "listen": "Please listen to the teacher.",
+        "doctor": "My mother is a doctor.",
+        "potato": "You can taste the potato."
     ]
 
     public static func sentence(for text: String) -> String {

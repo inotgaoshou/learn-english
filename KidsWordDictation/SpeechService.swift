@@ -5,6 +5,8 @@ enum SpeechAccent: String, CaseIterable, Identifiable {
     case american
     case british
 
+    static let storageKey = "KidsWordDictation.speechAccent"
+
     var id: String { rawValue }
 
     var title: String {
@@ -29,9 +31,11 @@ enum SpeechAccent: String, CaseIterable, Identifiable {
 final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published private(set) var isSpeaking = false
     @Published private(set) var isPaused = false
+    @Published private(set) var activeSequenceIndex: Int?
 
     private var synthesizer = AVSpeechSynthesizer()
     private var pendingUtterances: [AVSpeechUtterance] = []
+    private var utteranceIndices: [ObjectIdentifier: Int] = [:]
     private var playbackGeneration = 0
 
     override init() {
@@ -69,6 +73,25 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         play(utterances)
     }
 
+    func speakIPA(_ ipa: String, accent: SpeechAccent = .american, rate: Float = 0.38) {
+        let cleanIPA = normalizedIPA(ipa)
+        guard !cleanIPA.isEmpty else {
+            return
+        }
+        play([makeIPAUtterance(ipa: cleanIPA, rate: rate, accent: accent, delay: 0.2)])
+    }
+
+    func speakIPASequence(_ ipaSegments: [String], accent: SpeechAccent = .american, rate: Float = 0.36) {
+        let utterances = ipaSegments
+            .map(normalizedIPA)
+            .filter { !$0.isEmpty }
+            .map { makeIPAUtterance(ipa: $0, rate: rate, accent: accent, delay: 0.28) }
+        guard !utterances.isEmpty else {
+            return
+        }
+        play(utterances, tracksSequence: true)
+    }
+
     func pauseOrContinue() {
         if synthesizer.isPaused {
             synthesizer.continueSpeaking()
@@ -82,9 +105,18 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     func stop() {
         playbackGeneration += 1
         pendingUtterances.removeAll()
+        utteranceIndices.removeAll()
         synthesizer.stopSpeaking(at: .immediate)
         isSpeaking = false
         isPaused = false
+        activeSequenceIndex = nil
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        guard synthesizer === self.synthesizer else {
+            return
+        }
+        activeSequenceIndex = utteranceIndices[ObjectIdentifier(utterance)]
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
@@ -117,6 +149,8 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         guard !pendingUtterances.isEmpty else {
             isSpeaking = false
             isPaused = false
+            activeSequenceIndex = nil
+            utteranceIndices.removeAll()
             return
         }
 
@@ -133,15 +167,19 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         synthesizer.delegate = self
         isSpeaking = false
         isPaused = false
+        activeSequenceIndex = nil
     }
 
-    private func play(_ utterances: [AVSpeechUtterance]) {
+    private func play(_ utterances: [AVSpeechUtterance], tracksSequence: Bool = false) {
         configureAudioSessionForSpeech()
         playbackGeneration += 1
         let generation = playbackGeneration
         let wasActive = synthesizer.isSpeaking || synthesizer.isPaused
         prepareSynthesizerForReplacement()
         pendingUtterances = utterances
+        utteranceIndices = tracksSequence
+            ? Dictionary(uniqueKeysWithValues: utterances.enumerated().map { (ObjectIdentifier($0.element), $0.offset) })
+            : [:]
 
         if wasActive {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
@@ -162,6 +200,26 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         utterance.volume = 1.0
         utterance.postUtteranceDelay = delay
         return utterance
+    }
+
+    private func makeIPAUtterance(ipa: String, rate: Float, accent: SpeechAccent, delay: TimeInterval) -> AVSpeechUtterance {
+        let attributedText = NSMutableAttributedString(string: "sound")
+        attributedText.addAttribute(
+            NSAttributedString.Key(rawValue: AVSpeechSynthesisIPANotationAttribute),
+            value: ipa,
+            range: NSRange(location: 0, length: attributedText.length)
+        )
+        let utterance = AVSpeechUtterance(attributedString: attributedText)
+        utterance.voice = AVSpeechSynthesisVoice(language: accent.languageCode) ?? AVSpeechSynthesisVoice(language: "en")
+        utterance.rate = rate
+        utterance.volume = 1.0
+        utterance.postUtteranceDelay = delay
+        return utterance
+    }
+
+    private func normalizedIPA(_ ipa: String) -> String {
+        WordTextNormalizer.displayText(for: ipa)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/[]"))
     }
 
     private func configureAudioSessionForSpeech() {

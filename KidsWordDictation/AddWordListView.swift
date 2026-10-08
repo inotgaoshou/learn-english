@@ -12,7 +12,7 @@ struct AddWordListView: View {
     @State private var newBritishPhonetic = ""
     @State private var newTranslation = ""
     @State private var newSentence = ""
-    @State private var newWordAccent: SpeechAccent = .american
+    @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var drafts: [ManualWordDraft] = []
     @State private var pendingDeleteIDs: [ManualWordDraft.ID] = []
     @StateObject private var speechService = SpeechService()
@@ -94,7 +94,7 @@ struct AddWordListView: View {
                         return changed
                     }
 
-                    Picker("发音", selection: $newWordAccent) {
+                    Picker("发音", selection: accentBinding) {
                         ForEach(SpeechAccent.allCases) { accent in
                             Text(accent.title).tag(accent)
                         }
@@ -103,16 +103,16 @@ struct AddWordListView: View {
 
                     HStack(spacing: 12) {
                         Button {
-                            speechService.speak(newWord, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                            speechService.speak(newWord, rate: 0.45, repetitions: 1, accent: speechAccent)
                         } label: {
-                            Label("\(newWordAccent.title)发音", systemImage: "speaker.wave.2")
+                            Label("\(speechAccent.title)发音", systemImage: "speaker.wave.2")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
                         .disabled(WordTextNormalizer.normalize(newWord).isEmpty)
 
                         Button {
-                            speechService.speak(newSentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                            speechService.speak(newSentence, rate: 0.45, repetitions: 1, accent: speechAccent)
                         } label: {
                             Label("播放例句", systemImage: "quote.bubble")
                                 .frame(maxWidth: .infinity)
@@ -207,7 +207,7 @@ struct AddWordListView: View {
                                 Spacer()
 
                                 Button {
-                                    speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                                    speechService.speak(draft.text, rate: 0.45, repetitions: 1, accent: speechAccent)
                                 } label: {
                                     VStack(spacing: 2) {
                                         Image(systemName: "speaker.wave.2.circle")
@@ -217,10 +217,10 @@ struct AddWordListView: View {
                                 }
                                 .buttonStyle(.borderless)
                                 .disabled(WordTextNormalizer.normalize(draft.text).isEmpty)
-                                .accessibilityLabel("播放 \(draft.text) 的\(newWordAccent.title)发音")
+                                .accessibilityLabel("播放 \(draft.text) 的\(speechAccent.title)发音")
 
                                 Button {
-                                    speechService.speak(draft.sentence, rate: 0.45, repetitions: 1, accent: newWordAccent)
+                                    speechService.speak(draft.sentence, rate: 0.45, repetitions: 1, accent: speechAccent)
                                 } label: {
                                     VStack(spacing: 2) {
                                         Image(systemName: "quote.bubble")
@@ -332,6 +332,17 @@ struct AddWordListView: View {
         let ids = Set(pendingDeleteIDs)
         drafts.removeAll { ids.contains($0.id) }
         pendingDeleteIDs = []
+    }
+
+    private var speechAccent: SpeechAccent {
+        SpeechAccent(rawValue: accentRawValue) ?? .american
+    }
+
+    private var accentBinding: Binding<SpeechAccent> {
+        Binding(
+            get: { speechAccent },
+            set: { accentRawValue = $0.rawValue }
+        )
     }
 }
 

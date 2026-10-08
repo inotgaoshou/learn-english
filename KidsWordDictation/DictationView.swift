@@ -8,7 +8,7 @@ struct DictationView: View {
     @State private var answer = ""
     @State private var speechRate = 0.45
     @State private var repetitions = 2
-    @State private var speechAccent: SpeechAccent = .american
+    @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @StateObject private var speechService = SpeechService()
 
     init(wordList: WordList, mode: DictationMode) {
@@ -108,7 +108,7 @@ struct DictationView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            Picker("发音", selection: $speechAccent) {
+            Picker("发音", selection: accentBinding) {
                 ForEach(SpeechAccent.allCases) { accent in
                     Text(accent.title).tag(accent)
                 }
@@ -336,5 +336,16 @@ struct DictationView: View {
         }
 
         return ["美 \(american)", "英 \(british)"]
+    }
+
+    private var speechAccent: SpeechAccent {
+        SpeechAccent(rawValue: accentRawValue) ?? .american
+    }
+
+    private var accentBinding: Binding<SpeechAccent> {
+        Binding(
+            get: { speechAccent },
+            set: { accentRawValue = $0.rawValue }
+        )
     }
 }

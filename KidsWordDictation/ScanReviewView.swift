@@ -12,7 +12,7 @@ struct ScanReviewView: View {
     @State private var title: String
     @State private var selectedCategory: String
     @State private var customCategory: String
-    @State private var speechAccent: SpeechAccent = .american
+    @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var drafts: [WordDraft]
     @State private var pendingDeleteIDs: [WordDraft.ID] = []
     @State private var isBatchCompleting = false
@@ -47,7 +47,7 @@ struct ScanReviewView: View {
                         }
                     }
                     TextField("新分类（可选）", text: $customCategory)
-                    Picker("发音", selection: $speechAccent) {
+                    Picker("发音", selection: accentBinding) {
                         ForEach(SpeechAccent.allCases) { accent in
                             Text(accent.title).tag(accent)
                         }
@@ -357,6 +357,17 @@ struct ScanReviewView: View {
         let ids = Set(pendingDeleteIDs)
         drafts.removeAll { ids.contains($0.id) }
         pendingDeleteIDs = []
+    }
+
+    private var speechAccent: SpeechAccent {
+        SpeechAccent(rawValue: accentRawValue) ?? .american
+    }
+
+    private var accentBinding: Binding<SpeechAccent> {
+        Binding(
+            get: { speechAccent },
+            set: { accentRawValue = $0.rawValue }
+        )
     }
 }
 

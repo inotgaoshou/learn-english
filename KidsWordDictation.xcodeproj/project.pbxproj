@@ -25,6 +25,8 @@
 		100000000000000000000013 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000113 /* InfoPlist.strings */; };
 		10000000000000000000000B /* WordModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010B /* WordModels.swift */; };
 		100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000116 /* FreeDictionaryMetadataParser.swift */; };
+		100000000000000000000017 /* WordLearning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000117 /* WordLearning.swift */; };
+		100000000000000000000018 /* WordLearningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000118 /* WordLearningView.swift */; };
 		10000000000000000000000C /* WordTextExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010C /* WordTextExtractor.swift */; };
 		10000000000000000000000D /* DictationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010D /* DictationSession.swift */; };
 		10000000000000000000000E /* WordListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010E /* WordListStore.swift */; };
@@ -52,6 +54,8 @@
 		10000000000000000000010B /* WordModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordModels.swift; sourceTree = "<group>"; };
 		10000000000000000000010C /* WordTextExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTextExtractor.swift; sourceTree = "<group>"; };
 		100000000000000000000116 /* FreeDictionaryMetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDictionaryMetadataParser.swift; sourceTree = "<group>"; };
+		100000000000000000000117 /* WordLearning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLearning.swift; sourceTree = "<group>"; };
+		100000000000000000000118 /* WordLearningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLearningView.swift; sourceTree = "<group>"; };
 		10000000000000000000010D /* DictationSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationSession.swift; sourceTree = "<group>"; };
 		10000000000000000000010E /* WordListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListStore.swift; sourceTree = "<group>"; };
 		10000000000000000000010F /* DictationMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationMode.swift; sourceTree = "<group>"; };
@@ -94,6 +98,7 @@
 				100000000000000000000110 /* ArticleTranslatorView.swift */,
 				100000000000000000000114 /* MetadataCompletionView.swift */,
 				100000000000000000000115 /* OnlineWordMetadataService.swift */,
+				100000000000000000000118 /* WordLearningView.swift */,
 				100000000000000000000112 /* Assets.xcassets */,
 				100000000000000000000113 /* InfoPlist.strings */,
 			);
@@ -106,6 +111,7 @@
 				10000000000000000000010B /* WordModels.swift */,
 				10000000000000000000010C /* WordTextExtractor.swift */,
 				100000000000000000000116 /* FreeDictionaryMetadataParser.swift */,
+				100000000000000000000117 /* WordLearning.swift */,
 				10000000000000000000010F /* DictationMode.swift */,
 				10000000000000000000010D /* DictationSession.swift */,
 				10000000000000000000010E /* WordListStore.swift */,
@@ -209,6 +215,8 @@
 				10000000000000000000000B /* WordModels.swift in Sources */,
 				10000000000000000000000C /* WordTextExtractor.swift in Sources */,
 				100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */,
+				100000000000000000000017 /* WordLearning.swift in Sources */,
+				100000000000000000000018 /* WordLearningView.swift in Sources */,
 				10000000000000000000000F /* DictationMode.swift in Sources */,
 				10000000000000000000000D /* DictationSession.swift in Sources */,
 				10000000000000000000000E /* WordListStore.swift in Sources */,

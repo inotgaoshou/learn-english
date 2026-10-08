@@ -1,6 +1,6 @@
 # 小鹿英语
 
-iPhone-only SwiftUI app for scanning printed English vocabulary lists and playing randomized dictation for children.
+iPhone-only SwiftUI app for scanning printed English vocabulary lists, interactive word study, and randomized dictation for children.
 
 ## Features
 
@@ -9,9 +9,11 @@ iPhone-only SwiftUI app for scanning printed English vocabulary lists and playin
 - Ignore numbering, Chinese definitions, and common part-of-speech markers such as `n.`.
 - Save editable local word lists as JSON in the app documents directory.
 - Organize each unit by category, such as KET.
+- Open any word in an interactive learn, read, and spell flow with curated offline phonics guides.
+- Tap syllables and IPA units for pronunciation, then arrange shuffled spelling chunks to check the answer.
 - Scan, import, or paste English articles for Chinese translation and American English playback.
 - Randomize each dictation round without repeats.
-- Speak words with American English system TTS through `AVSpeechSynthesizer`.
+- Speak words with a persistent American or British system voice through `AVSpeechSynthesizer`.
 - Check typed answers case-insensitively and tolerate extra spaces in phrases.
 
 ## Open the App
