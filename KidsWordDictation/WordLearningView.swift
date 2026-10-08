@@ -794,7 +794,7 @@ private enum ReadingMode: String, CaseIterable, Identifiable {
 }
 
 enum LearningPalette {
-    static let primary = Color(red: 0.04, green: 0.55, blue: 0.43)
+    static let primary = Color(red: 0.04, green: 0.43, blue: 0.96)
     static let secondary = Color(red: 0.93, green: 0.48, blue: 0.08)
     static let word = Color(red: 0.90, green: 0.45, blue: 0.05)
 }
