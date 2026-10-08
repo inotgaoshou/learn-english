@@ -607,6 +607,8 @@ public enum WordSentenceLookup {
         "daughter": "Their daughter likes English.",
         "sister": "My sister is at university.",
         "brother": "My brother is younger than me.",
+        "grandson": "Their grandson is eight years old.",
+        "granddaughter": "Their granddaughter likes music.",
         "university": "Mel and Sue are at university.",
         "pet": "Our pet is a dog.",
         "musical instrument": "The guitar is a musical instrument.",

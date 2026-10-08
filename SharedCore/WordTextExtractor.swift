@@ -56,6 +56,8 @@ public enum WordTextExtractor {
         switch WordTextNormalizer.normalize(candidate) {
         case "list in":
             return "listen"
+        case "wite":
+            return "wife"
         default:
             return candidate
         }

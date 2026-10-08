@@ -57,6 +57,37 @@ final class WordTextExtractorTests: XCTestCase {
         XCTAssertEqual(words.map(\.translation), ["(外)祖母；奶奶；外婆", "乐器"])
     }
 
+    func testCorrectsActualU1PhotoVisionOutput() {
+        let text = """
+        1. grandma
+        2. grandad
+        3. husband
+        4. wite
+        5. uncle
+        6. aunt
+        7. cousin
+        8. son
+        9. daughter
+        10. sister
+        11. brother
+        12. grandson
+        13. granddaughter
+        14. university
+        15. pet
+        16. musical instrument
+        U1 $ ]
+        n. 4) E t: 31*
+        n. #X; 512
+        n. X*
+        n. #7: t*; *1: emax
+        """
+
+        let words = WordTextExtractor.extractWords(from: text)
+
+        XCTAssertEqual(words.map(\.text), DefaultWordLists.u1.words.map(\.text))
+        XCTAssertTrue(words.allSatisfy(\.hasCompleteRequiredMetadata))
+    }
+
     func testIgnoresPartOfSpeechOnlyLinesAndDeduplicatesCaseInsensitively() {
         let text = """
         n. 名词
@@ -204,6 +235,20 @@ final class WordTextExtractorTests: XCTestCase {
 
         XCTAssertEqual(words.map(\.text), ["listen"])
         XCTAssertEqual(words.first?.translation, "听")
+    }
+
+    func testDefaultU1ListContainsCompleteWordsInPrintedOrder() {
+        let list = DefaultWordLists.u1
+
+        XCTAssertEqual(list.title, "U1 单词")
+        XCTAssertEqual(list.category, "KET")
+        XCTAssertEqual(list.words.map(\.text), [
+            "grandma", "grandad", "husband", "wife", "uncle", "aunt", "cousin", "son",
+            "daughter", "sister", "brother", "grandson", "granddaughter", "university", "pet",
+            "musical instrument"
+        ])
+        XCTAssertTrue(list.words.allSatisfy(\.hasCompleteRequiredMetadata))
+        XCTAssertTrue(list.words.allSatisfy { !$0.sentence.isEmpty })
     }
 
     func testParsesFreeDictionaryMetadata() throws {

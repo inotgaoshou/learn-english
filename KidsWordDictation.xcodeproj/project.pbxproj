@@ -27,6 +27,7 @@
 		100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000116 /* FreeDictionaryMetadataParser.swift */; };
 		100000000000000000000017 /* WordLearning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000117 /* WordLearning.swift */; };
 		100000000000000000000018 /* WordLearningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000118 /* WordLearningView.swift */; };
+		100000000000000000000019 /* DefaultWordLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000119 /* DefaultWordLists.swift */; };
 		10000000000000000000000C /* WordTextExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010C /* WordTextExtractor.swift */; };
 		10000000000000000000000D /* DictationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010D /* DictationSession.swift */; };
 		10000000000000000000000E /* WordListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000010E /* WordListStore.swift */; };
@@ -56,6 +57,7 @@
 		100000000000000000000116 /* FreeDictionaryMetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDictionaryMetadataParser.swift; sourceTree = "<group>"; };
 		100000000000000000000117 /* WordLearning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLearning.swift; sourceTree = "<group>"; };
 		100000000000000000000118 /* WordLearningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLearningView.swift; sourceTree = "<group>"; };
+		100000000000000000000119 /* DefaultWordLists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultWordLists.swift; sourceTree = "<group>"; };
 		10000000000000000000010D /* DictationSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationSession.swift; sourceTree = "<group>"; };
 		10000000000000000000010E /* WordListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListStore.swift; sourceTree = "<group>"; };
 		10000000000000000000010F /* DictationMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationMode.swift; sourceTree = "<group>"; };
@@ -109,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				10000000000000000000010B /* WordModels.swift */,
+				100000000000000000000119 /* DefaultWordLists.swift */,
 				10000000000000000000010C /* WordTextExtractor.swift */,
 				100000000000000000000116 /* FreeDictionaryMetadataParser.swift */,
 				100000000000000000000117 /* WordLearning.swift */,
@@ -213,6 +216,7 @@
 				100000000000000000000014 /* MetadataCompletionView.swift in Sources */,
 				100000000000000000000015 /* OnlineWordMetadataService.swift in Sources */,
 				10000000000000000000000B /* WordModels.swift in Sources */,
+				100000000000000000000019 /* DefaultWordLists.swift in Sources */,
 				10000000000000000000000C /* WordTextExtractor.swift in Sources */,
 				100000000000000000000016 /* FreeDictionaryMetadataParser.swift in Sources */,
 				100000000000000000000017 /* WordLearning.swift in Sources */,

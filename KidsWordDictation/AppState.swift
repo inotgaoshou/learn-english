@@ -18,12 +18,14 @@ final class AppState: ObservableObject {
 
     private var store: WordListStore?
     private let categoriesKey = "KidsWordDictation.categories"
+    private let sampleU1SeededKey = "KidsWordDictation.sampleU1Seeded.v1"
 
     init() {
         do {
             let store = try WordListStore()
             self.store = store
             self.wordLists = try store.load()
+            seedDefaultU1IfNeeded()
             self.categories = loadCategories(merging: self.wordLists)
         } catch {
             self.store = nil
@@ -114,6 +116,20 @@ final class AppState: ObservableObject {
         } catch {
             storageError = error.localizedDescription
         }
+    }
+
+    private func seedDefaultU1IfNeeded() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: sampleU1SeededKey) else {
+            return
+        }
+
+        defer { defaults.set(true, forKey: sampleU1SeededKey) }
+        guard wordLists.isEmpty else {
+            return
+        }
+
+        wordLists = [DefaultWordLists.u1]
     }
 
     private func loadCategories(merging wordLists: [WordList]) -> [String] {
