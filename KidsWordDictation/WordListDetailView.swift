@@ -10,6 +10,7 @@ struct WordListDetailView: View {
     @State private var newSentence = ""
     @State private var newSentenceTranslation = ""
     @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
+    @State private var isUnitSettingsExpanded = false
     @State private var isAddWordExpanded = false
     @State private var pendingDeleteIDs: [WordItem.ID] = []
     @State private var editingWord: WordEditDraft?
@@ -28,9 +29,14 @@ struct WordListDetailView: View {
 
     var body: some View {
         List {
-            Section("单元") {
-                TextField("名称", text: $wordList.title)
-                TextField("分类", text: $wordList.category)
+            Section {
+                DisclosureGroup(isExpanded: $isUnitSettingsExpanded) {
+                    TextField("名称", text: $wordList.title)
+                    TextField("分类", text: $wordList.category)
+                } label: {
+                    Label("单元设置", systemImage: "slider.horizontal.3")
+                        .font(.headline)
+                }
             }
 
             Section("播放与听写") {
@@ -49,6 +55,15 @@ struct WordListDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(wordList.words.isEmpty)
+
+                if let firstWord = wordList.words.first {
+                    NavigationLink {
+                        WordLearningView(words: $wordList.words, initialWordID: firstWord.id)
+                    } label: {
+                        Label("开始互动学习", systemImage: "book.pages.fill")
+                            .font(.headline)
+                    }
+                }
 
                 HStack(spacing: 10) {
                     Button {
@@ -149,6 +164,7 @@ struct WordListDetailView: View {
                 }
             }
         }
+        .tint(LearningPalette.primary)
         .navigationTitle(wordList.title.isEmpty ? "单元" : wordList.title)
         .sheet(item: $editingWord) { draft in
             WordEditorSheet(draft: draft) { updatedWord in
@@ -333,33 +349,43 @@ private struct WordSummaryRow: View {
     let accent: SpeechAccent
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(word.text)
-                .font(.headline)
-                .foregroundStyle(.primary)
-
-            let phonetic = accent == .american ? word.phonetic : word.britishPhonetic
-            if !phonetic.isEmpty {
-                Text("\(accent.title) \(phonetic)")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-            }
-
-            if !word.translation.isEmpty {
-                Text(word.translation)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-
-            if !word.missingMetadataLabels.isEmpty {
-                Text("待补全：\(word.missingMetadataLabels.joined(separator: "、"))")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(word.text)
+                    .font(.title3.bold())
+                    .foregroundStyle(LearningPalette.word)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                let phonetic = accent == .american ? word.phonetic : word.britishPhonetic
+                if !phonetic.isEmpty {
+                    Text("\(accent.title) \(phonetic)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 4) {
+                if !word.translation.isEmpty {
+                    Text(word.translation)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(3)
+                }
+
+                if !word.missingMetadataLabels.isEmpty {
+                    Text("待补全：\(word.missingMetadataLabels.joined(separator: "、"))")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, 8)
     }
 }
 
