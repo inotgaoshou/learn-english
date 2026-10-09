@@ -47,4 +47,4 @@ xcodebuild -project KidsWordDictation.xcodeproj \
 
 The home screen includes an offline privacy notice. OCR runs on-device, word metadata and illustrations are bundled with the app, and speech uses Apple's system voices. Optional Apple Translation may download language resources. When bundled data and the local cache are insufficient, optional online completion sends only one normalized English word or short phrase to `api.dictionaryapi.dev`; it never uploads scanned images, articles, entire word lists, or dictation answers. The app has no developer-operated user-data server, online image search, ads, analytics, or tracking.
 
-The public bilingual privacy policy and support pages live in [`docs/`](docs/) and are published at `xiaoluenglish.cn`. The current release candidate is version 1.0, build 7.
+The public bilingual privacy policy and support pages live in [`docs/`](docs/) and are published at [`https://inotgaoshou.github.io/learn-english/`](https://inotgaoshou.github.io/learn-english/). The current release candidate is version 1.0, build 7.
