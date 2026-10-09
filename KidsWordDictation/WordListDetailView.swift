@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 
 struct WordListDetailView: View {
     @Binding var wordList: WordList
@@ -9,11 +10,18 @@ struct WordListDetailView: View {
     @State private var newTranslation = ""
     @State private var newSentence = ""
     @State private var newSentenceTranslation = ""
+    @State private var newWordMetadataKey = ""
     @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var isUnitSettingsExpanded = false
     @State private var isAddWordExpanded = false
     @State private var pendingDeleteIDs: [WordItem.ID] = []
     @State private var editingWord: WordEditDraft?
+    @State private var isMetadataCompleting = false
+    @State private var metadataCompletionMessage = ""
+    @State private var pendingUnitTranslations: [UnitTranslationRequest] = []
+    @State private var unitTranslationConfiguration: TranslationSession.Configuration?
+    @State private var didAttemptAutomaticCompletion = false
+    @AppStorage(OnlineCompletionSettings.storageKey) private var onlineCompletionEnabled = true
     @StateObject private var speechService = SpeechService()
 
     private var speechAccent: SpeechAccent {
@@ -100,6 +108,35 @@ struct WordListDetailView: View {
                 .disabled(wordList.words.isEmpty)
             }
 
+            if hasMissingMetadata {
+                Section("资料补全") {
+                    Button {
+                        startMetadataCompletion()
+                    } label: {
+                        Label(
+                            isMetadataCompleting ? "补全中" : "补全缺失资料",
+                            systemImage: isMetadataCompleting ? "hourglass" : "wand.and.stars"
+                        )
+                    }
+                    .disabled(isMetadataCompleting)
+
+                    if onlineCompletionEnabled {
+                        Button {
+                            startMetadataCompletion(refresh: true)
+                        } label: {
+                            Label("重新联网查询", systemImage: "arrow.clockwise")
+                        }
+                        .disabled(isMetadataCompleting)
+                    }
+
+                    if !metadataCompletionMessage.isEmpty {
+                        Text(metadataCompletionMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Section {
                 DisclosureGroup(isExpanded: $isAddWordExpanded) {
                     addWordFields
@@ -129,6 +166,13 @@ struct WordListDetailView: View {
                         .accessibilityLabel("播放 \(word.text) 的\(speechAccent.title)发音")
 
                         Menu {
+                            if let suggestion = SystemSpellingSuggestionProvider.suggestion(for: word.text) {
+                                Button {
+                                    applySpellingSuggestion(suggestion, to: word.id)
+                                } label: {
+                                    Label("修正为 \(suggestion)", systemImage: "text.magnifyingglass")
+                                }
+                            }
                             Button {
                                 editingWord = WordEditDraft(word: word)
                             } label: {
@@ -188,6 +232,16 @@ struct WordListDetailView: View {
         } message: {
             Text("删除后会从当前单元移除。")
         }
+        .translationTask(unitTranslationConfiguration) { session in
+            await runUnitTranslations(session)
+        }
+        .task {
+            guard !didAttemptAutomaticCompletion else { return }
+            didAttemptAutomaticCompletion = true
+            if hasMissingMetadata {
+                startMetadataCompletion()
+            }
+        }
         .onDisappear {
             speechService.stop()
         }
@@ -199,14 +253,10 @@ struct WordListDetailView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .onChange(of: newWord) { _, newValue in
-                    let metadata = MetadataCompletion.mergedMetadata(
-                        for: newValue,
-                        americanPhonetic: newPhonetic,
-                        britishPhonetic: newBritishPhonetic,
-                        translation: newTranslation,
-                        sentence: newSentence,
-                        sentenceTranslation: newSentenceTranslation
-                    )
+                    let key = WordTextNormalizer.normalize(newValue)
+                    guard key != newWordMetadataKey else { return }
+                    newWordMetadataKey = key
+                    let metadata = WordMetadataProvider.metadata(for: newValue)
                     newPhonetic = metadata.americanPhonetic
                     newBritishPhonetic = metadata.britishPhonetic
                     newTranslation = metadata.translation
@@ -240,7 +290,8 @@ struct WordListDetailView: View {
                     translation: newTranslation,
                     sentence: newSentence,
                     sentenceTranslation: newSentenceTranslation
-                )
+                ),
+                automaticallyComplete: true
             ) { metadata in
                 let changed = metadata.americanPhonetic != newPhonetic
                     || metadata.britishPhonetic != newBritishPhonetic
@@ -310,11 +361,149 @@ struct WordListDetailView: View {
         newTranslation = ""
         newSentence = ""
         newSentenceTranslation = ""
+        newWordMetadataKey = ""
         isAddWordExpanded = false
     }
 
     private func speakWordListInOrder() {
         speechService.speakSequence(wordList.words.map(\.text), rate: 0.45, accent: speechAccent)
+    }
+
+    private var hasMissingMetadata: Bool {
+        wordList.words.contains { !$0.hasCompleteRequiredMetadata }
+    }
+
+    private func startMetadataCompletion(refresh: Bool = false) {
+        guard !isMetadataCompleting else { return }
+        isMetadataCompleting = true
+        metadataCompletionMessage = "正在应用内置资料"
+        pendingUnitTranslations = []
+        Task { await resolveUnitMetadata(refresh: refresh) }
+    }
+
+    @MainActor
+    private func resolveUnitMetadata(refresh: Bool) async {
+        for index in wordList.words.indices {
+            _ = wordList.words[index].fillMissingMetadata()
+        }
+
+        let queryableTexts = wordList.words
+            .map(\.text)
+            .filter { SystemSpellingSuggestionProvider.suggestion(for: $0) == nil }
+        if onlineCompletionEnabled {
+            metadataCompletionMessage = "正在查询在线词典，仅发送单个英文词条"
+        }
+        let resolutions = await WordMetadataCoordinator.shared.resolveMany(
+            texts: queryableTexts,
+            allowNetwork: onlineCompletionEnabled,
+            refresh: refresh
+        )
+
+        for index in wordList.words.indices {
+            let key = wordList.words[index].normalizedText
+            if let resolution = resolutions[key] {
+                apply(resolution.metadata, toWordAt: index)
+            }
+            if wordList.words[index].translation.isEmpty
+                || (!wordList.words[index].sentence.isEmpty && wordList.words[index].sentenceTranslation.isEmpty) {
+                pendingUnitTranslations.append(UnitTranslationRequest(
+                    id: wordList.words[index].id,
+                    text: wordList.words[index].text,
+                    metadata: metadata(forWordAt: index)
+                ))
+            }
+        }
+
+        if pendingUnitTranslations.isEmpty {
+            finishUnitMetadataCompletion(prefix: onlineCompletionEnabled ? "已完成资料补全" : "已应用内置资料")
+        } else {
+            metadataCompletionMessage = "音标资料已应用，正在使用系统翻译补充中文"
+            unitTranslationConfiguration = TranslationSession.Configuration(
+                source: Locale.Language(identifier: "en"),
+                target: Locale.Language(identifier: "zh-Hans")
+            )
+            unitTranslationConfiguration?.invalidate()
+        }
+    }
+
+    @MainActor
+    private func runUnitTranslations(_ session: TranslationSession) async {
+        var failedCount = 0
+        do {
+            try await session.prepareTranslation()
+            for request in pendingUnitTranslations {
+                guard let index = wordList.words.firstIndex(where: { $0.id == request.id }) else { continue }
+                var metadata = request.metadata
+                do {
+                    if metadata.translation.isEmpty {
+                        metadata.translation = WordTextNormalizer.displayText(
+                            for: try await session.translate(request.text).targetText
+                        )
+                    }
+                    if !metadata.sentence.isEmpty && metadata.sentenceTranslation.isEmpty {
+                        metadata.sentenceTranslation = WordTextNormalizer.displayText(
+                            for: try await session.translate(metadata.sentence).targetText
+                        )
+                    }
+                    apply(metadata, toWordAt: index)
+                } catch {
+                    apply(metadata, toWordAt: index)
+                    failedCount += 1
+                }
+            }
+            finishUnitMetadataCompletion(
+                prefix: failedCount == 0 ? "已完成资料补全" : "部分中文翻译暂不可用"
+            )
+        } catch {
+            finishUnitMetadataCompletion(prefix: "系统翻译暂不可用，可手动编辑")
+        }
+    }
+
+    private func apply(_ incomingMetadata: WordMetadata, toWordAt index: Int) {
+        var merged = metadata(forWordAt: index)
+        merged.fillMissing(from: incomingMetadata)
+        wordList.words[index].phonetic = merged.americanPhonetic
+        wordList.words[index].britishPhonetic = merged.britishPhonetic
+        wordList.words[index].translation = merged.translation
+        wordList.words[index].sentence = merged.sentence
+        wordList.words[index].sentenceTranslation = merged.sentenceTranslation
+    }
+
+    private func metadata(forWordAt index: Int) -> WordMetadata {
+        let word = wordList.words[index]
+        return WordMetadata(
+            americanPhonetic: word.phonetic,
+            britishPhonetic: word.britishPhonetic,
+            translation: word.translation,
+            sentence: word.sentence,
+            sentenceTranslation: word.sentenceTranslation
+        )
+    }
+
+    private func finishUnitMetadataCompletion(prefix: String) {
+        pendingUnitTranslations = []
+        isMetadataCompleting = false
+        let missingCount = wordList.words.filter { !$0.hasCompleteRequiredMetadata }.count
+        let suggestionCount = wordList.words.filter {
+            SystemSpellingSuggestionProvider.suggestion(for: $0.text) != nil
+        }.count
+        var parts = [prefix]
+        if missingCount > 0 {
+            parts.append("\(missingCount) 个词仍待补全")
+        }
+        if suggestionCount > 0 {
+            parts.append("\(suggestionCount) 个词可能识别有误")
+        }
+        metadataCompletionMessage = parts.joined(separator: "；")
+    }
+
+    private func applySpellingSuggestion(_ suggestion: String, to id: WordItem.ID) {
+        guard let index = wordList.words.firstIndex(where: { $0.id == id }) else { return }
+        wordList.words[index] = WordItem(id: id, text: suggestion)
+        metadataCompletionMessage = "已修正为 \(suggestion)"
+        if onlineCompletionEnabled && !wordList.words[index].hasCompleteRequiredMetadata {
+            startMetadataCompletion()
+        }
     }
 
     private func updateWord(_ updatedWord: WordItem) -> Bool {
@@ -419,6 +608,12 @@ private struct WordEditDraft: Identifiable {
             sentenceTranslation: sentenceTranslation
         )
     }
+}
+
+private struct UnitTranslationRequest {
+    let id: WordItem.ID
+    let text: String
+    let metadata: WordMetadata
 }
 
 private struct WordEditorSheet: View {

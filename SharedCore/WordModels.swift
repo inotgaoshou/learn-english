@@ -122,7 +122,7 @@ public struct WordItem: Identifiable, Codable, Equatable, Hashable {
     }
 }
 
-public struct WordMetadata: Equatable, Hashable {
+public struct WordMetadata: Codable, Equatable, Hashable, Sendable {
     public var americanPhonetic: String
     public var britishPhonetic: String
     public var translation: String
@@ -327,6 +327,12 @@ public enum WordTranslationLookup {
         "jump": "跳；跳跃",
         "rope": "绳；绳索",
         "hard-working": "勤奋的；努力工作的",
+        "stair": "楼梯；梯级",
+        "roof": "屋顶",
+        "lift": "电梯；抬起",
+        "start": "开始；出发",
+        "invitation": "邀请；请柬",
+        "worry": "担心；担忧",
         "doctor": "医生；博士",
         "potato": "土豆；马铃薯"
     ]
@@ -452,6 +458,12 @@ public enum WordPhoneticLookup {
         "jump": "/dʒʌmp/",
         "rope": "/roʊp/",
         "hard-working": "/ˌhɑːrdˈwɝːkɪŋ/",
+        "stair": "/ster/",
+        "roof": "/ruːf/",
+        "lift": "/lɪft/",
+        "start": "/stɑːrt/",
+        "invitation": "/ˌɪnvɪˈteɪʃən/",
+        "worry": "/ˈwɝːi/",
         "doctor": "/ˈdɑːktɚ/",
         "potato": "/pəˈteɪtoʊ/"
     ]
@@ -571,6 +583,12 @@ public enum WordPhoneticLookup {
         "jump": "/dʒʌmp/",
         "rope": "/rəʊp/",
         "hard-working": "/ˌhɑːdˈwɜːkɪŋ/",
+        "stair": "/steə/",
+        "roof": "/ruːf/",
+        "lift": "/lɪft/",
+        "start": "/stɑːt/",
+        "invitation": "/ˌɪnvɪˈteɪʃən/",
+        "worry": "/ˈwʌri/",
         "doctor": "/ˈdɒktə/",
         "potato": "/pəˈteɪtəʊ/"
     ]
@@ -685,6 +703,12 @@ public enum WordSentenceLookup {
         "jump": "Jump over the rope.",
         "rope": "The children are jumping rope.",
         "hard-working": "She is a hard-working student.",
+        "stair": "Be careful on the stair.",
+        "roof": "The bird is on the roof.",
+        "lift": "Take the lift to the third floor.",
+        "start": "The lesson will start at nine.",
+        "invitation": "I received an invitation to the party.",
+        "worry": "Do not worry about the test.",
         "doctor": "My mother is a doctor.",
         "potato": "You can taste the potato."
     ]
@@ -795,6 +819,12 @@ public enum WordSentenceTranslationLookup {
         "jump": "跳过这根绳子。",
         "rope": "孩子们正在跳绳。",
         "hard-working": "她是一名勤奋的学生。",
+        "stair": "走楼梯时要小心。",
+        "roof": "鸟儿在屋顶上。",
+        "lift": "乘电梯到三楼。",
+        "start": "课程将在九点开始。",
+        "invitation": "我收到了一张聚会请柬。",
+        "worry": "不要担心这次考试。",
         "doctor": "我的妈妈是一名医生。",
         "potato": "你可以尝尝这个土豆。"
     ]

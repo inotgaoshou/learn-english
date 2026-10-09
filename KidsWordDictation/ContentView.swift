@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
     @State private var showingPrivacyPolicy = false
+    @AppStorage(OnlineCompletionSettings.storageKey) private var onlineCompletionEnabled = true
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,15 @@ struct ContentView: View {
                             systemImage: "doc.text.magnifyingglass"
                         )
                     }
+                }
+
+                Section("资料补全") {
+                    Toggle(isOn: $onlineCompletionEnabled) {
+                        Label("自动联网补全", systemImage: "network")
+                    }
+                    Text("内置资料没有音标时，仅发送单个英文词条（单词或短语）到免费在线词典；不会上传图片、文章或单词本。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section {

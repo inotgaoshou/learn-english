@@ -13,6 +13,7 @@ struct AddWordListView: View {
     @State private var newTranslation = ""
     @State private var newSentence = ""
     @State private var newSentenceTranslation = ""
+    @State private var newWordMetadataKey = ""
     @AppStorage(SpeechAccent.storageKey) private var accentRawValue = SpeechAccent.american.rawValue
     @State private var drafts: [ManualWordDraft] = []
     @State private var pendingDeleteIDs: [ManualWordDraft.ID] = []
@@ -48,14 +49,10 @@ struct AddWordListView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .onChange(of: newWord) { _, newValue in
-                            let metadata = MetadataCompletion.mergedMetadata(
-                                for: newValue,
-                                americanPhonetic: newPhonetic,
-                                britishPhonetic: newBritishPhonetic,
-                                translation: newTranslation,
-                                sentence: newSentence,
-                                sentenceTranslation: newSentenceTranslation
-                            )
+                            let key = WordTextNormalizer.normalize(newValue)
+                            guard key != newWordMetadataKey else { return }
+                            newWordMetadataKey = key
+                            let metadata = WordMetadataProvider.metadata(for: newValue)
                             newPhonetic = metadata.americanPhonetic
                             newBritishPhonetic = metadata.britishPhonetic
                             newTranslation = metadata.translation
@@ -89,7 +86,8 @@ struct AddWordListView: View {
                             translation: newTranslation,
                             sentence: newSentence,
                             sentenceTranslation: newSentenceTranslation
-                        )
+                        ),
+                        automaticallyComplete: true
                     ) { metadata in
                         let changed = metadata.americanPhonetic != newPhonetic
                             || metadata.britishPhonetic != newBritishPhonetic
@@ -326,6 +324,7 @@ struct AddWordListView: View {
         newTranslation = ""
         newSentence = ""
         newSentenceTranslation = ""
+        newWordMetadataKey = ""
     }
 
     private func appendExtractedWords() {

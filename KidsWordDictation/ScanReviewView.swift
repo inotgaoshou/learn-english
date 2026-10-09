@@ -19,6 +19,8 @@ struct ScanReviewView: View {
     @State private var batchCompletionMessage = ""
     @State private var pendingBatchTranslations: [BatchTranslationRequest] = []
     @State private var batchTranslationConfiguration: TranslationSession.Configuration?
+    @State private var didAttemptAutomaticCompletion = false
+    @AppStorage(OnlineCompletionSettings.storageKey) private var onlineCompletionEnabled = true
     @StateObject private var speechService = SpeechService()
 
     let categories: [String]
@@ -77,21 +79,26 @@ struct ScanReviewView: View {
                                 TextField("word", text: $draft.text)
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
-                                    .onChange(of: draft.text) { _, newValue in
-                                        let metadata = MetadataCompletion.mergedMetadata(
-                                            for: newValue,
-                                            americanPhonetic: draft.phonetic,
-                                            britishPhonetic: draft.britishPhonetic,
-                                            translation: draft.translation,
-                                            sentence: draft.sentence,
-                                            sentenceTranslation: draft.sentenceTranslation
-                                        )
+                                    .onChange(of: draft.text) { oldValue, newValue in
+                                        guard WordTextNormalizer.normalize(oldValue)
+                                                != WordTextNormalizer.normalize(newValue) else { return }
+                                        let metadata = WordMetadataProvider.metadata(for: newValue)
                                         draft.phonetic = metadata.americanPhonetic
                                         draft.britishPhonetic = metadata.britishPhonetic
                                         draft.translation = metadata.translation
                                         draft.sentence = metadata.sentence
                                         draft.sentenceTranslation = metadata.sentenceTranslation
                                     }
+
+                                if let suggestion = spellingSuggestion(for: draft.text) {
+                                    Button {
+                                        applySpellingSuggestion(suggestion, to: draft.id)
+                                    } label: {
+                                        Label("可能是 \(suggestion)，点击修正", systemImage: "text.magnifyingglass")
+                                            .font(.caption)
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
 
                                 PhoneticEditorFields(
                                     americanPhonetic: $draft.phonetic,
@@ -219,6 +226,13 @@ struct ScanReviewView: View {
             .translationTask(batchTranslationConfiguration) { session in
                 await runBatchTranslation(session)
             }
+            .task {
+                guard !didAttemptAutomaticCompletion else { return }
+                didAttemptAutomaticCompletion = true
+                if hasMissingMetadata {
+                    batchCompleteMissingMetadata()
+                }
+            }
         }
         .onDisappear {
             speechService.stop()
@@ -250,10 +264,17 @@ struct ScanReviewView: View {
         }
     }
 
-    private func batchCompleteMissingMetadata() {
+    private func batchCompleteMissingMetadata(refresh: Bool = false) {
+        guard !isBatchCompleting else { return }
         isBatchCompleting = true
         batchCompletionMessage = "正在应用内置词库"
         pendingBatchTranslations = []
+
+        Task { await resolveBatchMetadata(refresh: refresh) }
+    }
+
+    @MainActor
+    private func resolveBatchMetadata(refresh: Bool) async {
 
         for index in drafts.indices {
             let resolvedMetadata = MetadataCompletion.mergedMetadata(
@@ -265,6 +286,34 @@ struct ScanReviewView: View {
                 sentenceTranslation: drafts[index].sentenceTranslation
             )
             apply(resolvedMetadata, toDraftAt: index)
+        }
+
+        let queryableTexts = drafts
+            .map(\.text)
+            .filter { spellingSuggestion(for: $0) == nil }
+        if onlineCompletionEnabled {
+            batchCompletionMessage = "正在查询在线词典，仅发送单个英文词条"
+        }
+        let resolutions = await WordMetadataCoordinator.shared.resolveMany(
+            texts: queryableTexts,
+            allowNetwork: onlineCompletionEnabled,
+            refresh: refresh
+        )
+
+        for index in drafts.indices {
+            let key = WordTextNormalizer.normalize(drafts[index].text)
+            if let resolution = resolutions[key] {
+                let merged = MetadataCompletion.mergingCurrentValues(
+                    americanPhonetic: drafts[index].phonetic,
+                    britishPhonetic: drafts[index].britishPhonetic,
+                    translation: drafts[index].translation,
+                    sentence: drafts[index].sentence,
+                    sentenceTranslation: drafts[index].sentenceTranslation,
+                    with: resolution.metadata
+                )
+                apply(merged, toDraftAt: index)
+            }
+
             if drafts[index].translation.isEmpty
                 || (!drafts[index].sentence.isEmpty && drafts[index].sentenceTranslation.isEmpty) {
                 pendingBatchTranslations.append(BatchTranslationRequest(
@@ -276,10 +325,10 @@ struct ScanReviewView: View {
         }
 
         if pendingBatchTranslations.isEmpty {
-            batchCompletionMessage = completionSummary(prefix: "已应用内置词库")
+            batchCompletionMessage = completionSummary(prefix: onlineCompletionEnabled ? "已完成资料补全" : "已应用内置资料")
             isBatchCompleting = false
         } else {
-            batchCompletionMessage = "内置资料已应用，正在使用系统翻译补充中文"
+            batchCompletionMessage = "音标资料已应用，正在使用系统翻译补充中文"
             batchTranslationConfiguration = TranslationSession.Configuration(
                 source: Locale.Language(identifier: "en"),
                 target: Locale.Language(identifier: "zh-Hans")
@@ -339,7 +388,9 @@ struct ScanReviewView: View {
         guard missingPhoneticCount > 0 else {
             return prefix
         }
-        return "\(prefix)；\(missingPhoneticCount) 个词的音标不在内置词库中，请手动编辑"
+        let suggestionCount = drafts.filter { spellingSuggestion(for: $0.text) != nil }.count
+        let suggestionSuffix = suggestionCount > 0 ? "；\(suggestionCount) 个词可能识别有误，请先确认拼写" : ""
+        return "\(prefix)；\(missingPhoneticCount) 个词仍缺音标，可重新查询或手动编辑\(suggestionSuffix)"
     }
 
     private func apply(_ metadata: WordMetadata, toDraftAt index: Int) {
@@ -358,6 +409,22 @@ struct ScanReviewView: View {
             sentence: drafts[index].sentence,
             sentenceTranslation: drafts[index].sentenceTranslation
         )
+    }
+
+    private func spellingSuggestion(for text: String) -> String? {
+        SystemSpellingSuggestionProvider.suggestion(for: text)
+    }
+
+    private func applySpellingSuggestion(_ suggestion: String, to id: WordDraft.ID) {
+        guard let index = drafts.firstIndex(where: { $0.id == id }) else { return }
+        drafts[index].text = suggestion
+        let metadata = WordMetadataProvider.metadata(for: suggestion)
+        drafts[index].phonetic = metadata.americanPhonetic
+        drafts[index].britishPhonetic = metadata.britishPhonetic
+        drafts[index].translation = metadata.translation
+        drafts[index].sentence = metadata.sentence
+        drafts[index].sentenceTranslation = metadata.sentenceTranslation
+        batchCompletionMessage = "已修正为 \(suggestion)"
     }
 
     private func requestDeleteWord(id: WordDraft.ID) {

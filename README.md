@@ -15,6 +15,7 @@ iPhone-only SwiftUI app for scanning printed English vocabulary lists, interacti
 - Randomize each dictation round without repeats.
 - Speak words with a persistent American or British system voice through `AVSpeechSynthesizer`.
 - Check typed answers case-insensitively and tolerate extra spaces in phrases.
+- Complete missing phonetics and examples with an offline-first local cache and optional Free Dictionary API lookup.
 
 ## Open the App
 
@@ -44,6 +45,6 @@ xcodebuild -project KidsWordDictation.xcodeproj \
 
 ## Privacy and release preparation
 
-The home screen includes an offline privacy notice. OCR runs on-device, word metadata and illustrations are bundled with the app, and speech uses Apple's system voices. Optional Apple Translation may download language resources, but the app does not use developer-operated servers, third-party dictionaries, image search, ads, analytics, or tracking. Scanned images, articles, word lists, and dictation answers are not uploaded by the app.
+The home screen includes an offline privacy notice. OCR runs on-device, word metadata and illustrations are bundled with the app, and speech uses Apple's system voices. Optional Apple Translation may download language resources. When bundled data and the local cache are insufficient, optional online completion sends only one normalized English word or short phrase to `api.dictionaryapi.dev`; it never uploads scanned images, articles, entire word lists, or dictation answers. The app has no developer-operated user-data server, online image search, ads, analytics, or tracking.
 
-The public bilingual privacy policy and support pages live in [`docs/`](docs/) and are published at `xiaoluenglish.cn`. The current release candidate is version 1.0, build 6.
+The public bilingual privacy policy and support pages live in [`docs/`](docs/) and are published at `xiaoluenglish.cn`. The current release candidate is version 1.0, build 7.

@@ -1,5 +1,20 @@
 import SwiftUI
 import Translation
+import UIKit
+
+enum SystemSpellingSuggestionProvider {
+    static func suggestion(for text: String) -> String? {
+        let word = WordTextNormalizer.normalize(text)
+        guard word.count >= 3,
+              WordMetadataProvider.metadata(for: word).missingRequiredLabels.count == 3 else {
+            return nil
+        }
+
+        let range = NSRange(location: 0, length: (word as NSString).length)
+        let guesses = UITextChecker().guesses(forWordRange: range, in: word, language: "en_US") ?? []
+        return SpellingSuggestionSelector.bestSuggestion(for: word, candidates: guesses)
+    }
+}
 
 enum MetadataCompletion {
     static func missingLabels(
@@ -89,6 +104,45 @@ enum MetadataCompletion {
             sentenceTranslation: resolvedSentenceTranslation
         )
     }
+
+    static func mergingCurrentValues(
+        americanPhonetic: String,
+        britishPhonetic: String,
+        translation: String,
+        sentence: String,
+        sentenceTranslation: String,
+        with resolved: WordMetadata
+    ) -> WordMetadata {
+        var current = WordMetadata(
+            americanPhonetic: americanPhonetic,
+            britishPhonetic: britishPhonetic,
+            translation: translation,
+            sentence: sentence,
+            sentenceTranslation: sentenceTranslation
+        )
+        current.fillMissing(from: resolved)
+        return current
+    }
+
+    static func resolveOnline(
+        text: String,
+        current: WordMetadata,
+        allowNetwork: Bool,
+        refresh: Bool = false
+    ) async -> WordMetadataResolution {
+        let resolution = await WordMetadataCoordinator.shared.resolve(
+            text: text,
+            allowNetwork: allowNetwork,
+            refresh: refresh
+        )
+        var merged = current
+        merged.fillMissing(from: resolution.metadata)
+        return WordMetadataResolution(
+            metadata: merged,
+            source: resolution.source,
+            failureReason: resolution.failureReason
+        )
+    }
 }
 
 struct MetadataCompletionRow: View {
@@ -99,13 +153,17 @@ struct MetadataCompletionRow: View {
     let sentence: String
     let sentenceTranslation: String
     let missingLabels: [String]
+    var automaticallyComplete = false
     let onApplyMetadata: (WordMetadata) -> Bool
 
     @State private var completionMessage = ""
     @State private var completionMessageIsSuccess = false
+    @State private var hasSpellingSuggestion = false
     @State private var isCompleting = false
+    @State private var activeCompletionID: UUID?
     @State private var pendingTranslationMetadata: WordMetadata?
     @State private var translationConfiguration: TranslationSession.Configuration?
+    @AppStorage(OnlineCompletionSettings.storageKey) private var onlineCompletionEnabled = true
 
     var body: some View {
         if !missingLabels.isEmpty {
@@ -119,7 +177,7 @@ struct MetadataCompletionRow: View {
                     Spacer(minLength: 8)
 
                     Button {
-                        completeMetadata()
+                        Task { await completeMetadata() }
                     } label: {
                         Label(isCompleting ? "补全中" : "一键补全", systemImage: isCompleting ? "hourglass" : "wand.and.stars")
                             .font(.caption.weight(.semibold))
@@ -131,21 +189,64 @@ struct MetadataCompletionRow: View {
                 }
 
                 if !completionMessage.isEmpty {
-                    Text(completionMessage)
-                        .font(.caption2)
-                        .foregroundStyle(completionMessageIsSuccess ? .green : .secondary)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(completionMessage)
+                            .font(.caption2)
+                            .foregroundStyle(completionMessageIsSuccess ? .green : .secondary)
+
+                        if !completionMessageIsSuccess && !hasSpellingSuggestion && onlineCompletionEnabled {
+                            Button("重新查询") {
+                                Task { await completeMetadata(refresh: true) }
+                            }
+                            .font(.caption2.weight(.semibold))
+                            .buttonStyle(.borderless)
+                            .disabled(isCompleting)
+                        }
+                    }
                 }
             }
             .onChange(of: wordText) { _, _ in
+                activeCompletionID = nil
+                isCompleting = false
+                pendingTranslationMetadata = nil
+                translationConfiguration = nil
                 completionMessage = ""
+                hasSpellingSuggestion = false
             }
             .translationTask(translationConfiguration) { session in
                 await runTranslation(session)
             }
+            .task(id: WordTextNormalizer.normalize(wordText)) {
+                guard automaticallyComplete,
+                      !WordTextNormalizer.normalize(wordText).isEmpty,
+                      !missingLabels.isEmpty else { return }
+                do {
+                    try await Task.sleep(for: .milliseconds(600))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                await completeMetadata()
+            }
         }
     }
 
-    private func completeMetadata() {
+    @MainActor
+    private func completeMetadata(refresh: Bool = false) async {
+        guard !WordTextNormalizer.normalize(wordText).isEmpty else {
+            completionMessage = ""
+            return
+        }
+        if let suggestion = SystemSpellingSuggestionProvider.suggestion(for: wordText) {
+            hasSpellingSuggestion = true
+            setMessage("可能是 \(suggestion)，请先确认拼写后再补全", isSuccess: false)
+            return
+        }
+        hasSpellingSuggestion = false
+        let requestedWord = WordTextNormalizer.normalize(wordText)
+        let requestID = UUID()
+        activeCompletionID = requestID
+        isCompleting = true
         let offlineMetadata = MetadataCompletion.mergedMetadata(
             for: wordText,
             americanPhonetic: americanPhonetic,
@@ -155,26 +256,55 @@ struct MetadataCompletionRow: View {
             sentenceTranslation: sentenceTranslation
         )
         let didApplyOffline = onApplyMetadata(offlineMetadata)
+        let resolution = await MetadataCompletion.resolveOnline(
+            text: wordText,
+            current: offlineMetadata,
+            allowNetwork: onlineCompletionEnabled,
+            refresh: refresh
+        )
+        guard activeCompletionID == requestID,
+              WordTextNormalizer.normalize(wordText) == requestedWord,
+              !Task.isCancelled else {
+            return
+        }
+        let resolvedMetadata = resolution.metadata
+        let didApplyResolved = onApplyMetadata(resolvedMetadata)
         let remainingLabels = MetadataCompletion.missingLabels(
-            americanPhonetic: offlineMetadata.americanPhonetic,
-            britishPhonetic: offlineMetadata.britishPhonetic,
-            translation: offlineMetadata.translation,
-            sentence: offlineMetadata.sentence,
-            sentenceTranslation: offlineMetadata.sentenceTranslation
+            americanPhonetic: resolvedMetadata.americanPhonetic,
+            britishPhonetic: resolvedMetadata.britishPhonetic,
+            translation: resolvedMetadata.translation,
+            sentence: resolvedMetadata.sentence,
+            sentenceTranslation: resolvedMetadata.sentenceTranslation
         )
 
         if remainingLabels.isEmpty {
-            setMessage(didApplyOffline ? "已从内置词库补全" : "已经是完整信息", isSuccess: true)
+            let didChange = didApplyOffline || didApplyResolved
+            let sourceMessage: String
+            switch resolution.source {
+            case .dictionaryAPI:
+                sourceMessage = "已通过在线词典补全"
+            case .cache:
+                sourceMessage = "已从本地缓存补全"
+            default:
+                sourceMessage = "已从内置资料补全"
+            }
+            setMessage(didChange ? sourceMessage : "已经是完整信息", isSuccess: true)
+            activeCompletionID = nil
+            isCompleting = false
             return
         }
 
-        let needsSystemTranslation = offlineMetadata.translation.isEmpty
-            || (!offlineMetadata.sentence.isEmpty && offlineMetadata.sentenceTranslation.isEmpty)
+        let needsSystemTranslation = resolvedMetadata.translation.isEmpty
+            || (!resolvedMetadata.sentence.isEmpty && resolvedMetadata.sentenceTranslation.isEmpty)
         if needsSystemTranslation {
-            setMessage("内置词库未完全命中，正在尝试系统翻译", isSuccess: false)
-            beginTranslations(for: offlineMetadata)
+            let prefix = resolution.failureReason.map { "\($0)；" } ?? ""
+            setMessage("\(prefix)正在使用系统翻译补充中文", isSuccess: false)
+            beginTranslations(for: resolvedMetadata)
         } else {
-            setMessage("内置词库暂无对应音标，请手动编辑", isSuccess: false)
+            let reason = resolution.failureReason ?? (onlineCompletionEnabled ? "在线词典暂无对应音标" : "联网补全已关闭")
+            setMessage("\(reason)，可手动编辑", isSuccess: false)
+            activeCompletionID = nil
+            isCompleting = false
         }
     }
 
@@ -214,6 +344,7 @@ struct MetadataCompletionRow: View {
         }
 
         pendingTranslationMetadata = nil
+        activeCompletionID = nil
         isCompleting = false
     }
 
